@@ -72,7 +72,7 @@ const problemFormSchema = z.object({
   solution: z.string().min(1, { message: "정답은 필수입니다." }),
   media: problemMediaSchema.nullable().optional(),
 }).superRefine((data, ctx) => {
-  // 👇️ 이 부분이 수정되었습니다: 트리거 타입일 때, 미디어 중 최소 1개는 값이 있는지 확인합니다.
+  // 트리거 타입일 때, 미디어 중 최소 1개는 값이 있는지 확인합니다.
   if (data.type === "trigger") {
     const hasMediaContent = data.media && (
         data.media.videoKey || 
@@ -131,6 +131,7 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
       // 힌트가 없으면 기본값으로 빈 힌트 하나를 넣어 최소 1개 항목을 충족시킵니다.
       hints: initialData?.hints?.length ? initialData.hints.map(h => ({ value: h })) : [{ value: "" }],
       solution: initialData?.solution || "",
+      // 'null' 대신 'undefined'를 사용하여 물리 타입일 때 media 필드를 제외할 수 있도록 합니다.
       media: initialData?.media ?? (initialData?.type === "trigger" ? { videoKey: null, imageKey: null, text: null, bgmKey: null } : undefined),
     },
     mode: "onChange",
@@ -254,6 +255,27 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
         ? values.hints.map(h => h.value.trim()).filter(h => h.length > 0)
         : [];
         
+      // 🚀 핵심 수정 부분: media 객체 정리 로직
+      let finalMedia = null;
+
+      if (values.type === "trigger" && values.media) {
+          const mediaObject = values.media;
+          
+          finalMedia = {
+              videoKey: mediaObject.videoKey || null,
+              imageKey: mediaObject.imageKey || null,
+              // 💡 수정: undefined 또는 빈 문자열을 null로 변환하여 Firestore 오류를 방지
+              text: mediaObject.text?.trim() || null, 
+              bgmKey: mediaObject.bgmKey || null,
+          };
+          
+          // 만약 모든 미디어 필드가 null이면, media 필드 자체를 null로 처리합니다.
+          const isMediaEmpty = !finalMedia.videoKey && !finalMedia.imageKey && !finalMedia.text && !finalMedia.bgmKey;
+          if (isMediaEmpty) {
+              finalMedia = null;
+          }
+      }
+
       const dataToSave: ProblemDataForDB = {
           themeId: values.themeId,
           number: Number(values.number),
@@ -262,7 +284,8 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
           code: values.code,
           hints: hintsArray, // 변환된 배열 사용
           solution: values.solution,
-          media: values.type === "physical" ? null : (values.media || { videoKey: null, imageKey: null, text: null, bgmKey: null }),
+          // 🚀 정리된 finalMedia 사용
+          media: finalMedia, 
       };
 
       if (initialData) {
@@ -480,7 +503,12 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
                   <FormItem>
                     <FormLabel className="text-white">텍스트</FormLabel>
                     <FormControl>
-                      <Textarea {...field} value={field.value || ""} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
+                      <Textarea 
+                          {...field} 
+                          // 💡 수정 반영: undefined일 때 빈 문자열("")이 되도록 변경
+                          value={field.value ?? ""} 
+                          className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" 
+                      />
                     </FormControl>
                     <FormDescription className="text-gray-400 ml-2">
                       트리거시 표시될 텍스트입니다. (선택 사항)

@@ -4,7 +4,6 @@ export function useMediaUrl(key: string | null | undefined): string | null {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    // key가 유효하지 않으면 URL을 null로 설정
     if (!key) {
       setImageUrl(null);
       return;
