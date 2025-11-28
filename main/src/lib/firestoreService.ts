@@ -21,7 +21,7 @@ import type {
   ProblemType,
 } from "@/types/dbTypes";
 
-import { deleteR2Object } from "./r2"; // Import deleteR2Object
+
 
 // --- Firestore Service ---
 
@@ -54,6 +54,28 @@ const docToProblem = (doc: QueryDocumentSnapshot<DocumentData>): Problem => ({
   createdAt: doc.data().createdAt,
   updatedAt: doc.data().updatedAt,
 });
+
+// Helper function to call the R2 delete API route
+const callR2DeleteApi = async (key: string): Promise<void> => {
+  try {
+    const response = await fetch('/api/r2-delete', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ key }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to delete R2 object via API');
+    }
+  } catch (error) {
+    console.error(`Error calling R2 delete API for key ${key}:`, error);
+    throw error;
+  }
+};
+
 
 // --- Theme CRUD Operations ---
 
@@ -96,12 +118,23 @@ export const deleteTheme = async (id: string): Promise<void> => {
   const theme = await getTheme(id); // Fetch theme to get media keys
 
   if (theme) {
-    // Delete associated R2 objects
+    // Before deleting the theme, delete all associated problems and their R2 objects
+    const problems = await getProblemsByTheme(id);
+    for (const problem of problems) {
+      try {
+        await deleteProblem(id, problem.id);
+      } catch (error) {
+        console.warn(`Failed to delete problem ${problem.id} for theme ${id} during theme deletion:`, error);
+        // Continue with theme deletion even if problem deletion fails
+      }
+    }
+
+    // Delete associated R2 objects for the theme itself
     const mediaKeys = [theme.thumbnailKey, theme.openingVideoKey, theme.openingBgmKey];
     for (const key of mediaKeys) {
       if (key) {
         try {
-          await deleteR2Object(key);
+          await callR2DeleteApi(key);
         } catch (error) {
           console.warn(`Failed to delete R2 object ${key} for theme ${id}:`, error);
           // Continue with Firestore deletion even if R2 deletion fails for one item
@@ -167,7 +200,7 @@ export const deleteProblem = async (themeId: string, problemId: string): Promise
     for (const key of mediaKeys) {
       if (key) {
         try {
-          await deleteR2Object(key);
+          await callR2DeleteApi(key);
         } catch (error) {
           console.warn(`Failed to delete R2 object ${key} for problem ${problemId}:`, error);
           // Continue with Firestore deletion even if R2 deletion fails for one item

@@ -1,6 +1,7 @@
+// AdminProblemsPage.tsx
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   Table,
@@ -42,7 +43,7 @@ import ProblemForm from "@/components/admin/ProblemForm";
 import { FaPlus, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { IoSearchOutline } from "react-icons/io5";
 import { IoIosArrowBack } from "react-icons/io";
-import { useMediaUrl } from "@/lib/useMediaUrl"; // Added this line
+import { useMediaUrl } from "@/lib/useMediaUrl";
 import React from "react";
 
 export default function AdminProblemsPage() {
@@ -92,6 +93,40 @@ export default function AdminProblemsPage() {
     fetchProblemsAndTheme();
   }, [themeId]);
 
+  // handleConfirmDelete 함수를 useCallback으로 정의
+  const handleConfirmDelete = useCallback(async () => {
+    if (!problemToDelete) return;
+    try {
+      await deleteProblem(themeId, problemToDelete.id);
+      setProblems(prev => prev.filter(p => p.id !== problemToDelete.id));
+    } catch (err) {
+      console.error("Error deleting problem:", err);
+      alert("문제 삭제에 실패했습니다.");
+    } finally {
+      setShowDeleteConfirm(false);
+      setProblemToDelete(null);
+    }
+  }, [themeId, problemToDelete]);
+
+  // Enter 키 이벤트 리스너 추가 (삭제 확인 모달)
+  useEffect(() => {
+    if (showDeleteConfirm) {
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Enter') {
+          event.preventDefault(); 
+          handleConfirmDelete();
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [showDeleteConfirm, handleConfirmDelete]);
+  // -----------------------------------------------------
+
   const displayedProblems = useMemo(() => {
     let filtered = problems.filter(p => 
       p.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -121,30 +156,17 @@ export default function AdminProblemsPage() {
     setShowDeleteConfirm(true);
   };
 
-  const handleConfirmDelete = async () => {
-    if (!problemToDelete) return;
-    try {
-      await deleteProblem(themeId, problemToDelete.id);
-      setProblems(prev => prev.filter(p => p.id !== problemToDelete.id));
-    } catch (err) {
-      console.error("Error deleting problem:", err);
-      alert("문제 삭제에 실패했습니다.");
-    } finally {
-      setShowDeleteConfirm(false);
-      setProblemToDelete(null);
-    }
-  };
-
   const TableSkeleton = () => (
     <>
       {Array.from({ length: 5 }).map((_, i) => (
         <TableRow key={`skeleton-${i}`}>
-          <TableCell><Skeleton className="h-6 w-10" /></TableCell>
-          <TableCell><Skeleton className="h-6 w-48" /></TableCell>
-          <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-          <TableCell><Skeleton className="h-6 w-32" /></TableCell>
+          <TableCell className="text-center"><Skeleton className="h-6 w-10 mx-auto" /></TableCell>
+          <TableCell className="text-center"><Skeleton className="h-6 w-48 mx-auto" /></TableCell>
+          <TableCell className="text-center"><Skeleton className="h-6 w-24 mx-auto" /></TableCell>
+          <TableCell className="text-center"><Skeleton className="h-6 w-32 mx-auto" /></TableCell>
+          <TableCell className="text-center"><Skeleton className="h-6 w-10 mx-auto" /></TableCell>
           <TableCell className="text-right"><Skeleton className="h-8 w-40 ml-auto" /></TableCell>
-          <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+          <TableCell className="text-center"><Skeleton className="h-8 w-8 mx-auto" /></TableCell>
         </TableRow>
       ))}
     </>
@@ -197,7 +219,7 @@ export default function AdminProblemsPage() {
     <div className="p-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          {/* ⭐ '아이콘 강조형' 돌아가기 버튼과 제목 영역 */}
+          {/* '아이콘 강조형' 돌아가기 버튼과 제목 영역 */}
           <div className="flex items-center gap-4 mb-4">
             <Button 
               variant="outline" 
@@ -261,11 +283,13 @@ export default function AdminProblemsPage() {
             {loading ? <TableSkeleton /> : displayedProblems.map((problem) => (
               <React.Fragment key={problem.id}>
                 <TableRow>
-                  <TableCell>{problem.number}</TableCell>
-                  <TableCell>{problem.title}</TableCell>
-                  <TableCell>{problem.solution}</TableCell>
-                  <TableCell>{problem.code}</TableCell>
-                  <TableCell>{problem.type}</TableCell>
+                  {/* 중앙 정렬 적용 (text-center) */}
+                  <TableCell className="text-center">{problem.number}</TableCell>
+                  <TableCell className="text-center">{problem.title}</TableCell>
+                  <TableCell className="text-center">{problem.solution}</TableCell>
+                  <TableCell className="text-center">{problem.code}</TableCell>
+                  <TableCell className="text-center">{problem.type}</TableCell>
+                  {/* 액션 버튼은 오른쪽 정렬 유지 (text-right) */}
                   <TableCell className="text-right">
                     <Button variant="outline" className="mr-2 border-gray-700 hover:bg-[#282828]" onClick={() => { setEditingProblem(problem); setShowProblemModal(true); }}>
                       수정
@@ -274,6 +298,7 @@ export default function AdminProblemsPage() {
                       삭제
                     </Button>
                   </TableCell>
+                  {/* 확장 버튼은 중앙 정렬 유지 (text-center) */}
                   <TableCell className="text-center w-[50px]">
                     <Button
                       variant="ghost"
@@ -285,50 +310,90 @@ export default function AdminProblemsPage() {
                     </Button>
                   </TableCell>
                 </TableRow>
+                
+                {/* 확장된 상세 정보 (없음 항목 표시 로직 추가) */}
                 {expandedProblemId === problem.id && (
                   <TableRow key={problem.id + "-details"} className="bg-[#2a2a2a] border-b border-slate-700/70">
-                    <TableCell colSpan={6} className="p-6">
+                    <TableCell colSpan={7} className="p-6">
                       <div className="flex flex-col space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                          {problem.media?.imageKey && (
-                            <div>
-                              <p className="font-bold mb-2">이미지:</p>
+                        
+                        {/* 1. 이미지 및 영상 (첫째 줄) */}
+                        {/* 키가 없더라도 컨테이너를 렌더링하여 구조를 유지 */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                          {/* 이미지 */}
+                          <div>
+                            <p className="font-bold mb-2">🖼️ 이미지:</p>
+                            {problem.media?.imageKey ? (
                               <ProblemImage imageKey={problem.media.imageKey} />
-                            </div>
-                          )}
-                          {problem.media?.videoKey && (
-                            <div>
-                              <p className="font-bold mb-2">영상:</p>
+                            ) : (
+                              <div className="w-64 h-36 bg-gray-800/50 rounded-md flex items-center justify-center border border-dashed border-gray-700">
+                                <span className="text-sm text-gray-500">이미지 없음</span>
+                              </div>
+                            )}
+                          </div>
+                          {/* 영상 */}
+                          <div>
+                            <p className="font-bold mb-2">🎥 영상:</p>
+                            {problem.media?.videoKey ? (
                               <ProblemVideo videoKey={problem.media.videoKey} />
-                            </div>
-                          )}
-                          {problem.media?.bgmKey && (
-                            <div>
-                              <p className="font-bold mb-2">BGM:</p>
-                              <ProblemAudio audioKey={problem.media.bgmKey} />
-                            </div>
-                          )}
+                            ) : (
+                              <div className="w-64 h-36 bg-gray-800/50 rounded-md flex items-center justify-center border border-dashed border-gray-700">
+                                <span className="text-sm text-gray-500">영상 없음</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                                                  {problem.media?.text && (
-                                                    <div>
-                                                      <p className="font-bold mb-2">텍스트:</p>
-                                                      <p className="text-sm whitespace-pre-wrap">
-                                                        {problem.media.text}
-                                                      </p>
-                                                    </div>
-                                                  )}
-                                                  {problem.hints && problem.hints.length > 0 && (
-                                                    <div>
-                                                      <p className="font-bold mb-2">힌트:</p>
-                                                      <ul className="list-inside text-sm">
-                                                        {problem.hints.map((hint, index) => (
-                                                          <li key={index}>
-                                                            <span className="mr-2">힌트 {index + 1}:</span>{hint}
-                                                          </li>
-                                                        ))}
-                                                      </ul>
-                                                    </div>
-                                                  )}                      </div>
+
+                        {/* 2. BGM 및 텍스트 (둘째 줄) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                          {/* BGM/오디오 */}
+                          <div>
+                            <p className="font-bold mb-2">🎵 BGM:</p>
+                            {problem.media?.bgmKey ? (
+                              <ProblemAudio audioKey={problem.media.bgmKey} />
+                            ) : (
+                              <div className="w-full max-w-sm h-10 bg-gray-800/50 rounded-md flex items-center justify-center border border-dashed border-gray-700">
+                                <span className="text-sm text-gray-500">BGM 없음</span>
+                              </div>
+                            )}
+                          </div>
+                          {/* 텍스트 */}
+                          <div>
+                            <p className="font-bold mb-2">📝 텍스트:</p>
+                            <div className="max-h-40 overflow-y-auto custom-scroll p-2 border border-slate-700 rounded-md">
+                              {problem.media?.text ? (
+                                <p className="text-sm whitespace-pre-wrap">
+                                  {problem.media.text}
+                                </p>
+                              ) : (
+                                <p className="text-sm text-gray-500 italic">
+                                  텍스트 내용 없음
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 3. 힌트 (셋째 줄) */}
+                        <div>
+                          <p className="font-bold mb-2">💡 힌트:</p>
+                          <div className="max-h-40 overflow-y-auto custom-scroll p-2 border border-slate-700 rounded-md">
+                            {problem.hints && problem.hints.length > 0 ? (
+                              <ul className="list-inside space-y-1 text-sm">
+                                {problem.hints.map((hint, index) => (
+                                  <li key={index}>
+                                    <span className="font-medium mr-3">힌트 {index + 1} :</span>{hint}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">
+                                힌트 없음
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
@@ -368,7 +433,10 @@ export default function AdminProblemsPage() {
             <AlertDialogCancel onClick={() => setShowDeleteConfirm(false)} className="hover:bg-[#282828] hover:text-white text-white border-gray-700">
               취소
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-600 hover:bg-red-700 text-white">
+            <AlertDialogAction 
+              onClick={handleConfirmDelete} 
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
               삭제
             </AlertDialogAction>
           </AlertDialogFooter>

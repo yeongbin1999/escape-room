@@ -153,7 +153,7 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => form.setValue(name, name === 'thumbnailKey' ? 'default' : '', { shouldValidate: true, shouldDirty: true })}
+              onClick={() => form.setValue(name, name === 'thumbnailKey' ? null : '', { shouldValidate: true, shouldDirty: true })}
             >
               <FaTimes className="text-red-500" />
             </Button>
@@ -172,7 +172,7 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
         ...values,
         openingVideoKey: values.openingVideoKey || null,
         openingBgmKey: values.openingBgmKey || null,
-        thumbnailKey: values.thumbnailKey || "default",
+        thumbnailKey: values.thumbnailKey || null,
       };
 
       if (initialData) {

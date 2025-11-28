@@ -8,7 +8,7 @@ export interface Theme {
   updatedAt: Timestamp;
   openingVideoKey?: string | null;
   openingBgmKey?: string | null;
-  thumbnailKey?: string;
+  thumbnailKey?: string | null;
   isActive: boolean;
 }
 

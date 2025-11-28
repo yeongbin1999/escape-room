@@ -46,18 +46,24 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 
+import Image from 'next/image';
+
 // --- Media Display Components ---
 
 function ThemeImage({ imageKey }: { imageKey: string | null | undefined }) {
-  const imageUrl = useMediaUrl(imageKey);
+  const mediaUrl = useMediaUrl(imageKey);
+  const imageUrl = mediaUrl || '/default.png'; // Use default.png if mediaUrl is falsy
 
   return (
-    <div className="w-64 h-36 bg-gray-800 rounded-md flex items-center justify-center">
-      {imageUrl ? (
-        <img src={imageUrl} alt="Theme Thumbnail" className="w-full h-full object-cover rounded-md" />
-      ) : (
-        <span className="text-xs text-gray-400">이미지 없음</span>
-      )}
+    <div className="relative w-64 h-36 bg-gray-800 rounded-md overflow-hidden">
+      <Image
+        src={imageUrl}
+        alt={imageKey ? "Theme Thumbnail" : "Default Image"}
+        fill
+        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        style={{ objectFit: 'cover' }}
+        className="transition-transform duration-300 hover:scale-105"
+      />
     </div>
   );
 }
