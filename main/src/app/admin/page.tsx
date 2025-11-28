@@ -121,7 +121,7 @@ export default function AdminThemesPage() {
   const [expandedThemeId, setExpandedThemeId] = useState<string | null>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortCriteria, setSortCriteria] = useState('title-asc');
+  const [sortCriteria, setSortCriteria] = useState('createdAt-desc');
 
   const fetchThemes = async () => {
     setLoading(true);

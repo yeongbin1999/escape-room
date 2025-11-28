@@ -1,10 +1,15 @@
+// ProblemForm.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form"; // useFieldArray 추가
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { Problem, ProblemType } from "@/types/dbTypes";
+// Problem 타입 정의를 사용하기 위해 import
+import type { Problem, ProblemType } from "@/types/dbTypes"; 
+// firestoreService의 실제 시그니처에 맞춥니다.
+import { addProblem, updateProblem } from "@/lib/firestoreService"; 
+import { FaUpload, FaTimes, FaSpinner, FaPlus, FaTrash } from "react-icons/fa"; // 아이콘 추가
 import {
   Form,
   FormControl,
@@ -24,8 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { addProblem, updateProblem } from "@/lib/firestoreService"; // These will need to be implemented
-import { FaUpload, FaTimes, FaSpinner } from "react-icons/fa";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +43,9 @@ interface ProblemFormProps {
   onSuccess?: () => void;
 }
 
+// Problem 타입에서 DB가 자동 관리하는 필드를 제외한 데이터 타입
+type ProblemDataForDB = Omit<Problem, 'createdAt' | 'updatedAt' | 'id'>;
+
 const problemMediaSchema = z.object({
   videoKey: z.string().nullable().optional(),
   imageKey: z.string().nullable().optional(),
@@ -47,20 +53,29 @@ const problemMediaSchema = z.object({
   bgmKey: z.string().nullable().optional(),
 });
 
+const hintSchema = z.object({
+    value: z.string().min(1, { message: "힌트 내용을 입력하세요." })
+});
+
 const problemFormSchema = z.object({
   themeId: z.string().min(1, { message: "테마 ID는 필수입니다." }),
-  number: z.coerce.number().min(1, { message: "문제 번호는 1 이상이어야 합니다." }),
+  number: z.string()
+    .min(1, { message: "문제 번호는 양수여야 합니다." })
+    .refine(val => !isNaN(Number(val)) && Number(val) > 0, { 
+      message: "문제 번호는 양수여야 합니다." 
+    }),
   title: z.string().min(1, { message: "문제 제목은 필수입니다." }),
   type: z.enum(["physical", "trigger"], { message: "문제 타입은 필수입니다." }),
   code: z.string().min(1, { message: "문제 코드는 필수입니다." }),
-  hints: z.string().optional(),
+  
+  // 👇️ 수정된 부분: 힌트 배열을 필수로 변경하고 최소 1개의 항목을 요구합니다.
+  hints: z.array(hintSchema)
+      .min(1, { message: "최소 1개의 힌트를 입력해야 합니다." }),
+      
   solution: z.string().min(1, { message: "정답은 필수입니다." }),
-  media: problemMediaSchema.optional(),
+  media: problemMediaSchema.nullable().optional(),
 }).superRefine((data, ctx) => {
   if (data.type === "trigger") {
-    // For trigger type, media is conceptually required, but individual fields can be optional
-    // We'll allow media to be optional here, and handle specific media field requirements later if needed.
-    // For now, just ensure media object exists if type is trigger and any media field is provided.
     if (!data.media) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -69,7 +84,6 @@ const problemFormSchema = z.object({
       });
     }
   } else if (data.type === "physical") {
-    // For physical type, media should not be present or should be empty
     if (data.media && (data.media.videoKey || data.media.imageKey || data.media.text || data.media.bgmKey)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -104,27 +118,34 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
     resolver: zodResolver(problemFormSchema),
     defaultValues: {
       themeId: themeId,
-      number: initialData?.number || 1,
+      number: String(initialData?.number || 1), 
       title: initialData?.title || "",
       type: initialData?.type || "physical",
       code: initialData?.code || "",
-      hints: initialData?.hints?.join('\n') || "",
+      // 힌트가 없으면 기본값으로 빈 힌트 하나를 넣어 최소 1개 항목을 충족시킵니다.
+      hints: initialData?.hints?.length ? initialData.hints.map(h => ({ value: h })) : [{ value: "" }],
       solution: initialData?.solution || "",
-      media: initialData?.media || { videoKey: null, imageKey: null, text: null, bgmKey: null },
+      media: initialData?.media ?? (initialData?.type === "trigger" ? { videoKey: null, imageKey: null, text: null, bgmKey: null } : undefined),
     },
     mode: "onChange",
   });
+  
+  // ⚠️ useFieldArray 훅 사용
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "hints",
+  });
 
-  // Watch problem type to conditionally render media fields
   const problemType = form.watch("type");
 
   useEffect(() => {
     form.setValue("themeId", themeId);
   }, [themeId, form]);
 
+  // handleFileUpload 함수 (생략)
   const handleFileUpload = async (file: File, fieldName: "videoKey" | "imageKey" | "bgmKey"): Promise<string | null> => {
     const acceptedTypes = ACCEPTED_FILE_TYPES[fieldName];
-    if (acceptedTypes && !acceptedTypes.split(',').includes(file.type)) {
+    if (file.type && acceptedTypes && !acceptedTypes.split(',').includes(file.type)) {
       const allowedExtensions = ACCEPTED_FILE_DESCRIPTIONS[fieldName];
       setDialogMessage(`잘못된 파일 형식입니다. ${allowedExtensions}만 업로드할 수 있습니다.`);
       setIsDialogOpen(true);
@@ -158,8 +179,8 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
     }
   };
 
+  // FileUploadField 컴포넌트 (생략)
   const FileUploadField = ({ name, label }: { name: "videoKey" | "imageKey" | "bgmKey", label: string }) => {
-    // media 객체의 필드를 watch
     const currentKey = form.watch(`media.${name}`);
     const acceptAttr = ACCEPTED_FILE_TYPES[name];
     const uiDescription = ACCEPTED_FILE_DESCRIPTIONS[name];
@@ -179,7 +200,10 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
                   const file = e.target.files?.[0];
                   if (file) {
                     handleFileUpload(file, name).then(key => {
-                      if (key) form.setValue(`media.${name}`, key, { shouldValidate: true, shouldDirty: true });
+                      if (key) {
+                          const currentMedia = form.getValues("media") || {};
+                          form.setValue("media", { ...currentMedia, [name]: key }, { shouldValidate: true, shouldDirty: true });
+                      }
                       e.target.value = '';
                     });
                   }
@@ -196,14 +220,15 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
               </label>
             </div>
           </FormControl>
-          {/* currentKey가 null이 아닌 경우(파일이 있는 경우)에만 삭제 버튼 표시 */}
           {currentKey && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              // form.setValue 호출 시 필드 이름을 `media.${name}`로 수정
-              onClick={() => form.setValue(`media.${name}`, null, { shouldValidate: true, shouldDirty: true })}
+              onClick={() => {
+                 const currentMedia = form.getValues("media") || {};
+                 form.setValue("media", { ...currentMedia, [name]: null }, { shouldValidate: true, shouldDirty: true });
+              }}
             >
               <FaTimes className="text-red-500" />
             </Button>
@@ -218,22 +243,36 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
   async function onSubmit(values: ProblemFormValues) {
     setIsSubmitting(true);
     try {
-      const hintsArray = values.hints ? values.hints.split('\n').map(hint => hint.trim()).filter(hint => hint.length > 0) : [];
+      // ⚠️ 수정된 부분: hints 객체 배열을 string 배열로 변환하고 빈 값 제거
+      // Zod 스키마에서 최소 1개를 요구하더라도, 내용이 빈 문자열인 힌트는 DB에 저장하지 않기 위해 필터링합니다.
+      const hintsArray = values.hints
+        ? values.hints.map(h => h.value.trim()).filter(h => h.length > 0)
+        : [];
+        
+      // 만약 hintsArray가 비어있다면 (즉, 유일한 힌트 필드가 비어 있었다면), Zod 검사에서 걸러지므로 
+      // 이 로직은 주로 DB에 저장될 깨끗한 데이터만 남기는 역할을 합니다.
 
-      const dataToSave = {
-        ...values,
-        hints: hintsArray,
-        // 물리 타입인 경우 media를 null로 저장
-        media: values.type === "physical" ? null : (values.media || { videoKey: null, imageKey: null, text: null, bgmKey: null }),
+      const dataToSave: ProblemDataForDB = {
+          themeId: values.themeId,
+          number: Number(values.number),
+          title: values.title,
+          type: values.type as ProblemType,
+          code: values.code,
+          hints: hintsArray, // 변환된 배열 사용
+          solution: values.solution,
+          media: values.type === "physical" ? null : (values.media || { videoKey: null, imageKey: null, text: null, bgmKey: null }),
       };
 
       if (initialData) {
-        await updateProblem(initialData.id, dataToSave);
+        // updateProblem 시그니처: (themeId, problemId, problemData)
+        await updateProblem(values.themeId, initialData.id, dataToSave); 
         setDialogMessage("문제가 성공적으로 업데이트되었습니다.");
       } else {
-        await addProblem(dataToSave);
+        // addProblem 시그니처: (themeId, problemData)
+        await addProblem(values.themeId, dataToSave); 
         setDialogMessage("문제가 성공적으로 생성되었습니다.");
       }
+
       setIsDialogOpen(true);
     } catch (error) {
       console.error("문제 저장 실패:", error);
@@ -255,7 +294,8 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
   return (
     <>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-4 max-h-[85vh] overflow-y-auto custom-scroll">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-4">
+          {/* 1. 문제 번호 */}
           <FormField
             control={form.control}
             name="number"
@@ -273,6 +313,8 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
               </FormItem>
             )}
           />
+          
+          {/* 2. 문제 제목 */}
           <FormField
             control={form.control}
             name="title"
@@ -290,34 +332,27 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
               </FormItem>
             )}
           />
+
+          {/* 3. 정답 (순서 변경) */}
           <FormField
             control={form.control}
-            name="type"
+            name="solution"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-white">
                   <span className="flex items-center">
-                    문제 타입<span className="text-red-500 ml-0">*</span>
+                    정답<span className="text-red-500 ml-0">*</span>
                   </span>
                 </FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger className="bg-[#171717] border-[#2d2d2d] text-white focus:ring-0">
-                      <SelectValue placeholder="문제 타입을 선택하세요" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent className="bg-[#1f1f1f] text-white border-[#2d2d2d]">
-                    <SelectItem value="physical">물리</SelectItem>
-                    <SelectItem value="trigger">트리거</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormDescription className="text-gray-400 ml-2">
-                  물리 타입: 미디어 없음, 트리거 타입: 미디어 필수
-                </FormDescription>
+                <FormControl>
+                  <Input placeholder="문제 정답" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
+                </FormControl>
                 <FormMessage className="text-red-500 ml-2" />
               </FormItem>
             )}
           />
+
+          {/* 4. 문제 코드 (순서 변경) */}
           <FormField
             control={form.control}
             name="code"
@@ -338,41 +373,100 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
               </FormItem>
             )}
           />
+          
+          {/* 5. 힌트 목록 (순서 변경) */}
+          <div className="space-y-4">
+              <FormLabel className="text-white block">
+                  <span className="flex items-center">
+                      힌트 목록<span className="text-red-500 ml-0">*</span> {/* 필수 항목 표시 */}
+                  </span>
+              </FormLabel>
+              <FormDescription className="text-gray-400 ml-2 mb-4">
+                  최소 1개의 힌트를 입력해야 합니다. 각 힌트 내용을 입력하세요.
+              </FormDescription>
+              {fields.map((item, index) => (
+                  <FormField
+                      key={item.id}
+                      control={form.control}
+                      name={`hints.${index}.value`} // 필드 이름이 객체 배열 형태를 따름
+                      render={({ field }) => (
+                          <FormItem className="flex items-center space-x-2">
+                              <FormLabel className="text-white w-12 pt-2">
+                                  힌트 {index + 1}
+                              </FormLabel>
+                              <FormControl className="flex-grow">
+                                  <Textarea 
+                                      placeholder={`힌트 ${index + 1} 내용을 입력하세요.`} 
+                                      {...field} 
+                                      className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0 min-h-[50px] max-h-[150px]" 
+                                  />
+                              </FormControl>
+                              <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-red-500 hover:bg-[#282828]"
+                                  // 최소 1개는 남겨야 하므로, 힌트가 1개 초과일 때만 삭제 버튼 활성화
+                                  disabled={fields.length <= 1} 
+                                  onClick={() => remove(index)}
+                              >
+                                  <FaTrash />
+                              </Button>
+                              <FormMessage className="text-red-500 ml-2 absolute left-[120px] top-[40px]" />
+                          </FormItem>
+                      )}
+                  />
+              ))}
+              {/* 힌트 배열 전체에 대한 에러 메시지 (최소 1개 요구 사항) */}
+              {form.formState.errors.hints && (
+                <p className="text-red-500 ml-2 mt-1">
+                    {form.formState.errors.hints.message}
+                </p>
+              )}
+                <div className="flex justify-end pt-2"> 
+                  <Button
+                      type="button"
+                      variant="outline"
+                      className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]"
+                      onClick={() => append({ value: "" })}
+                  >
+                      <FaPlus className="mr-2" /> 힌트 추가
+                  </Button>
+              </div>
+          </div>
+          
+          {/* 6. 문제 타입 (순서 변경) */}
           <FormField
             control={form.control}
-            name="hints"
-            render={({ field }) => (
-              <FormItem>
-                {/* 힌트는 필수가 아니므로 별표를 추가하지 않음 */}
-                <FormLabel className="text-white">힌트</FormLabel>
-                <FormControl>
-                  <Textarea placeholder="각 힌트를 새 줄에 입력하세요." {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
-                </FormControl>
-                <FormDescription className="text-gray-400 ml-2">
-                  여러 힌트는 줄바꿈으로 구분합니다.
-                </FormDescription>
-                <FormMessage className="text-red-500 ml-2" />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="solution"
+            name="type"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-white">
                   <span className="flex items-center">
-                    정답<span className="text-red-500 ml-0">*</span>
+                    문제 타입<span className="text-red-500 ml-0">*</span>
                   </span>
                 </FormLabel>
-                <FormControl>
-                  <Input placeholder="문제 정답" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
-                </FormControl>
+                <FormDescription className="text-gray-400 ml-2">
+                  물리 타입: 미디어 없음, 트리거 타입: 미디어 필수
+                </FormDescription>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger className="bg-[#171717] border-[#2d2d2d] text-white focus:ring-0">
+                      <SelectValue placeholder="문제 타입을 선택하세요" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className="bg-[#1f1f1f] text-white border-[#2d2d2d]">
+                    <SelectItem value="physical">물리</SelectItem>
+                    <SelectItem value="trigger">트리거</SelectItem>
+                  </SelectContent>
+                </Select>
                 <FormMessage className="text-red-500 ml-2" />
               </FormItem>
             )}
           />
-
+          {/* -------------------------------------------------------------------------- */}
+          
+          {/* 7. 미디어 (타입이 'trigger'일 경우) */}
           {problemType === "trigger" && (
             <div className="space-y-6 border p-4 rounded-md bg-[#171717] border-[#2d2d2d]">
               <h3 className="text-lg font-semibold text-white">미디어 (트리거 타입 문제)</h3>
@@ -385,7 +479,7 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
                   <FormItem>
                     <FormLabel className="text-white">텍스트</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="미디어 텍스트" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
+                      <Textarea placeholder="미디어 텍스트" {...field} value={field.value || ""} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
                     </FormControl>
                     <FormDescription className="text-gray-400 ml-2">
                       문제와 함께 표시될 텍스트입니다.
@@ -399,7 +493,7 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
           )}
 
           <div className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting || uploading !== null} className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
+            <Button type="submit" disabled={isSubmitting || uploading !== null} variant="outline" className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
               {isSubmitting ? "저장 중..." : (uploading ? "업로드 중..." : "저장")}
             </Button>
           </div>
@@ -407,7 +501,6 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
       </Form>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        {/* 다이얼로그 디자인도 ThemeForm에 맞춤 */}
         <DialogContent className="sm:max-w-[425px] bg-[#1f1f1f] text-white border-slate-700/70">
           <DialogHeader>
             <DialogTitle>{dialogMessage.includes("실패") || dialogMessage.includes("잘못된") ? "오류" : "성공"}</DialogTitle>
