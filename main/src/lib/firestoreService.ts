@@ -3,7 +3,7 @@ import {
   collection,
   doc,
   getDocs,
-  getDoc,
+  getDoc, // Added getDoc for fetching theme before deletion
   addDoc,
   updateDoc,
   deleteDoc,
@@ -20,6 +20,8 @@ import type {
   ProblemMedia,
   ProblemType,
 } from "@/types/dbTypes";
+
+import { deleteR2Object } from "./r2"; // Import deleteR2Object
 
 // --- Firestore Service ---
 
@@ -91,6 +93,23 @@ export const updateTheme = async (
 };
 
 export const deleteTheme = async (id: string): Promise<void> => {
+  const theme = await getTheme(id); // Fetch theme to get media keys
+
+  if (theme) {
+    // Delete associated R2 objects
+    const mediaKeys = [theme.thumbnailKey, theme.openingVideoKey, theme.openingBgmKey];
+    for (const key of mediaKeys) {
+      if (key) {
+        try {
+          await deleteR2Object(key);
+        } catch (error) {
+          console.warn(`Failed to delete R2 object ${key} for theme ${id}:`, error);
+          // Continue with Firestore deletion even if R2 deletion fails for one item
+        }
+      }
+    }
+  }
+
   const docRef = doc(db, "themes", id);
   await deleteDoc(docRef);
 };
@@ -140,6 +159,23 @@ export const updateProblem = async (
 };
 
 export const deleteProblem = async (themeId: string, problemId: string): Promise<void> => {
+  const problem = await getProblem(themeId, problemId); // Fetch problem to get media keys
+
+  if (problem && problem.media) {
+    // Delete associated R2 objects
+    const mediaKeys = [problem.media.imageKey, problem.media.videoKey, problem.media.bgmKey];
+    for (const key of mediaKeys) {
+      if (key) {
+        try {
+          await deleteR2Object(key);
+        } catch (error) {
+          console.warn(`Failed to delete R2 object ${key} for problem ${problemId}:`, error);
+          // Continue with Firestore deletion even if R2 deletion fails for one item
+        }
+      }
+    }
+  }
+
   const docRef = doc(db, "themes", themeId, "problems", problemId);
   await deleteDoc(docRef);
 };

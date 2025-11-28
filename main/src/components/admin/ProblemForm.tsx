@@ -1,13 +1,10 @@
-// ProblemForm.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray } from "react-hook-form"; // useFieldArray 추가
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-// Problem 타입 정의를 사용하기 위해 import
 import type { Problem, ProblemType } from "@/types/dbTypes"; 
-// firestoreService의 실제 시그니처에 맞춥니다.
 import { addProblem, updateProblem } from "@/lib/firestoreService"; 
 import { FaUpload, FaTimes, FaSpinner, FaPlus, FaTrash } from "react-icons/fa"; // 아이콘 추가
 import {
@@ -68,22 +65,31 @@ const problemFormSchema = z.object({
   type: z.enum(["physical", "trigger"], { message: "문제 타입은 필수입니다." }),
   code: z.string().min(1, { message: "문제 코드는 필수입니다." }),
   
-  // 👇️ 수정된 부분: 힌트 배열을 필수로 변경하고 최소 1개의 항목을 요구합니다.
+  // 힌트 배열을 필수로 변경하고 최소 1개의 항목을 요구합니다.
   hints: z.array(hintSchema)
       .min(1, { message: "최소 1개의 힌트를 입력해야 합니다." }),
       
   solution: z.string().min(1, { message: "정답은 필수입니다." }),
   media: problemMediaSchema.nullable().optional(),
 }).superRefine((data, ctx) => {
+  // 👇️ 이 부분이 수정되었습니다: 트리거 타입일 때, 미디어 중 최소 1개는 값이 있는지 확인합니다.
   if (data.type === "trigger") {
-    if (!data.media) {
+    const hasMediaContent = data.media && (
+        data.media.videoKey || 
+        data.media.imageKey || 
+        (data.media.text && data.media.text.trim().length > 0) || 
+        data.media.bgmKey
+    );
+
+    if (!hasMediaContent) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "트리거 타입 문제는 미디어 정보가 필요합니다.",
-        path: ["media"],
+        message: "트리거 타입 문제는 비디오/이미지/텍스트/BGM 중 최소 1개의 미디어 콘텐츠가 필요합니다.",
+        path: ["type"], // 에러 메시지를 'type' 필드에 연결
       });
     }
   } else if (data.type === "physical") {
+    // 물리 타입 문제는 미디어를 가질 수 없습니다.
     if (data.media && (data.media.videoKey || data.media.imageKey || data.media.text || data.media.bgmKey)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -130,7 +136,7 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
     mode: "onChange",
   });
   
-  // ⚠️ useFieldArray 훅 사용
+  // useFieldArray 훅 사용
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "hints",
@@ -243,15 +249,11 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
   async function onSubmit(values: ProblemFormValues) {
     setIsSubmitting(true);
     try {
-      // ⚠️ 수정된 부분: hints 객체 배열을 string 배열로 변환하고 빈 값 제거
-      // Zod 스키마에서 최소 1개를 요구하더라도, 내용이 빈 문자열인 힌트는 DB에 저장하지 않기 위해 필터링합니다.
+      // 힌트 객체 배열을 string 배열로 변환하고 빈 값 제거
       const hintsArray = values.hints
         ? values.hints.map(h => h.value.trim()).filter(h => h.length > 0)
         : [];
         
-      // 만약 hintsArray가 비어있다면 (즉, 유일한 힌트 필드가 비어 있었다면), Zod 검사에서 걸러지므로 
-      // 이 로직은 주로 DB에 저장될 깨끗한 데이터만 남기는 역할을 합니다.
-
       const dataToSave: ProblemDataForDB = {
           themeId: values.themeId,
           number: Number(values.number),
@@ -303,11 +305,11 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
               <FormItem>
                 <FormLabel className="text-white">
                   <span className="flex items-center">
-                    문제 번호<span className="text-red-500 ml-0">*</span>
+                    번호<span className="text-red-500 ml-0">*</span>
                   </span>
                 </FormLabel>
                 <FormControl>
-                  <Input type="number" placeholder="문제 번호" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
+                  <Input type="number" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
                 </FormControl>
                 <FormMessage className="text-red-500 ml-2" />
               </FormItem>
@@ -322,11 +324,11 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
               <FormItem>
                 <FormLabel className="text-white">
                   <span className="flex items-center">
-                    문제 제목<span className="text-red-500 ml-0">*</span>
+                    제목<span className="text-red-500 ml-0">*</span>
                   </span>
                 </FormLabel>
                 <FormControl>
-                  <Input placeholder="문제 제목" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
+                  <Input {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
                 </FormControl>
                 <FormMessage className="text-red-500 ml-2" />
               </FormItem>
@@ -345,7 +347,7 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
                   </span>
                 </FormLabel>
                 <FormControl>
-                  <Input placeholder="문제 정답" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
+                  <Input {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
                 </FormControl>
                 <FormMessage className="text-red-500 ml-2" />
               </FormItem>
@@ -363,12 +365,12 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
                     문제 코드<span className="text-red-500 ml-0">*</span>
                   </span>
                 </FormLabel>
-                <FormControl>
-                  <Input placeholder="문제 코드" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
-                </FormControl>
                 <FormDescription className="text-gray-400 ml-2">
                   이 코드를 입력하면 힌트가 제공됩니다.
                 </FormDescription>
+                <FormControl>
+                  <Input {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
+                </FormControl>
                 <FormMessage className="text-red-500 ml-2" />
               </FormItem>
             )}
@@ -396,7 +398,6 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
                               </FormLabel>
                               <FormControl className="flex-grow">
                                   <Textarea 
-                                      placeholder={`힌트 ${index + 1} 내용을 입력하세요.`} 
                                       {...field} 
                                       className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0 min-h-[50px] max-h-[150px]" 
                                   />
@@ -447,7 +448,7 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
                   </span>
                 </FormLabel>
                 <FormDescription className="text-gray-400 ml-2">
-                  물리 타입: 미디어 없음, 트리거 타입: 미디어 필수
+                  물리 타입: 미디어 없음, 트리거 타입: 미디어 필수 (최소 1개)
                 </FormDescription>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
@@ -469,7 +470,7 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
           {/* 7. 미디어 (타입이 'trigger'일 경우) */}
           {problemType === "trigger" && (
             <div className="space-y-6 border p-4 rounded-md bg-[#171717] border-[#2d2d2d]">
-              <h3 className="text-lg font-semibold text-white">미디어 (트리거 타입 문제)</h3>
+              <h3 className="text-lg font-semibold text-white">트리거 타입 문제(트리거시 나올 미디어)</h3>
               <FileUploadField name="videoKey" label="비디오" />
               <FileUploadField name="imageKey" label="이미지" />
               <FormField
@@ -479,10 +480,10 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
                   <FormItem>
                     <FormLabel className="text-white">텍스트</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="미디어 텍스트" {...field} value={field.value || ""} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
+                      <Textarea {...field} value={field.value || ""} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
                     </FormControl>
                     <FormDescription className="text-gray-400 ml-2">
-                      문제와 함께 표시될 텍스트입니다.
+                      트리거시 표시될 텍스트입니다. (선택 사항)
                     </FormDescription>
                     <FormMessage className="text-red-500 ml-2" />
                   </FormItem>

@@ -39,9 +39,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Problem, Theme } from "@/types/dbTypes";
 import { getProblemsByTheme, deleteProblem, getTheme } from "@/lib/firestoreService";
 import ProblemForm from "@/components/admin/ProblemForm";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { IoSearchOutline } from "react-icons/io5";
 import { IoIosArrowBack } from "react-icons/io";
+import { useMediaUrl } from "@/lib/useMediaUrl"; // Added this line
+import React from "react";
 
 export default function AdminProblemsPage() {
   const router = useRouter();
@@ -61,6 +63,11 @@ export default function AdminProblemsPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [sortCriteria, setSortCriteria] = useState('number-asc');
+  const [expandedProblemId, setExpandedProblemId] = useState<string | null>(null);
+
+  const toggleExpand = (problemId: string) => {
+    setExpandedProblemId(prevId => (prevId === problemId ? null : problemId));
+  };
 
   const fetchProblemsAndTheme = async () => {
     if (!themeId) return;
@@ -137,10 +144,54 @@ export default function AdminProblemsPage() {
           <TableCell><Skeleton className="h-6 w-24" /></TableCell>
           <TableCell><Skeleton className="h-6 w-32" /></TableCell>
           <TableCell className="text-right"><Skeleton className="h-8 w-40 ml-auto" /></TableCell>
+          <TableCell><Skeleton className="h-8 w-8" /></TableCell>
         </TableRow>
       ))}
     </>
   );
+
+  // --- Media Display Components for Problem ---
+  function ProblemImage({ imageKey }: { imageKey: string | null | undefined }) {
+    const imageUrl = useMediaUrl(imageKey);
+
+    return (
+      <div className="w-64 h-36 bg-gray-800 rounded-md flex items-center justify-center">
+        {imageUrl ? (
+          <img src={imageUrl} alt="Problem Thumbnail" className="w-full h-full object-cover rounded-md" />
+        ) : (
+          <span className="text-xs text-gray-400">이미지 없음</span>
+        )}
+      </div>
+    );
+  }
+
+  function ProblemVideo({ videoKey }: { videoKey: string | null | undefined }) {
+    const videoUrl = useMediaUrl(videoKey);
+
+    return (
+      <div className="w-64 h-36 bg-gray-800 rounded-md flex items-center justify-center">
+        {videoUrl ? (
+          <video src={videoUrl} controls className="w-full h-full rounded-md bg-black" />
+        ) : (
+          <span className="text-xs text-gray-400 p-4">비디오 없음</span>
+        )}
+      </div>
+    );
+  }
+
+  function ProblemAudio({ audioKey }: { audioKey: string | null | undefined }) {
+    const audioUrl = useMediaUrl(audioKey);
+
+    return (
+      <div className="w-full max-w-sm">
+        {audioUrl ? (
+          <audio src={audioUrl} controls className="w-full" />
+        ) : (
+          <span className="text-xs text-gray-400">BGM 없음</span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -197,29 +248,91 @@ export default function AdminProblemsPage() {
         <Table>
           <TableHeader className="bg-[#111]">
             <TableRow>
-              <TableHead className="text-white">번호</TableHead>
-              <TableHead className="text-white">제목</TableHead>
-              <TableHead className="text-white">타입</TableHead>
-              <TableHead className="text-white">정답</TableHead>
-              <TableHead className="text-right text-white">작업</TableHead>
+              <TableHead className="text-white text-center w-[70px]">번호</TableHead>
+              <TableHead className="text-white text-center min-w-[200px]">제목</TableHead>
+              <TableHead className="text-white text-center w-[150px]">정답</TableHead>
+              <TableHead className="text-white text-center w-[150px]">코드</TableHead>
+              <TableHead className="text-white text-center w-[100px]">타입</TableHead>
+              <TableHead className="text-right text-white w-[180px]"></TableHead>
+              <TableHead className="text-white text-center w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? <TableSkeleton /> : displayedProblems.map((problem) => (
-              <TableRow key={problem.id}>
-                <TableCell>{problem.number}</TableCell>
-                <TableCell>{problem.title}</TableCell>
-                <TableCell>{problem.type}</TableCell>
-                <TableCell>{problem.solution}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="outline" className="mr-2 border-gray-700 hover:bg-[#282828]" onClick={() => { setEditingProblem(problem); setShowProblemModal(true); }}>
-                    수정
-                  </Button>
-                  <Button variant="outline" onClick={() => handleDeleteClick(problem)} className="text-red-400 border-red-700 hover:bg-red-900/50 hover:text-red-300">
-                    삭제
-                  </Button>
-                </TableCell>
-              </TableRow>
+              <React.Fragment key={problem.id}>
+                <TableRow>
+                  <TableCell>{problem.number}</TableCell>
+                  <TableCell>{problem.title}</TableCell>
+                  <TableCell>{problem.solution}</TableCell>
+                  <TableCell>{problem.code}</TableCell>
+                  <TableCell>{problem.type}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" className="mr-2 border-gray-700 hover:bg-[#282828]" onClick={() => { setEditingProblem(problem); setShowProblemModal(true); }}>
+                      수정
+                    </Button>
+                    <Button variant="outline" onClick={() => handleDeleteClick(problem)} className="text-red-400 border-red-700 hover:bg-red-900/50 hover:text-red-300">
+                      삭제
+                    </Button>
+                  </TableCell>
+                  <TableCell className="text-center w-[50px]">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleExpand(problem.id)}
+                      className="text-gray-400 hover:text-white hover:bg-[#282828]"
+                    >
+                      {expandedProblemId === problem.id ? <FaChevronUp /> : <FaChevronDown />}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+                {expandedProblemId === problem.id && (
+                  <TableRow key={problem.id + "-details"} className="bg-[#2a2a2a] border-b border-slate-700/70">
+                    <TableCell colSpan={6} className="p-6">
+                      <div className="flex flex-col space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                          {problem.media?.imageKey && (
+                            <div>
+                              <p className="font-bold mb-2">이미지:</p>
+                              <ProblemImage imageKey={problem.media.imageKey} />
+                            </div>
+                          )}
+                          {problem.media?.videoKey && (
+                            <div>
+                              <p className="font-bold mb-2">영상:</p>
+                              <ProblemVideo videoKey={problem.media.videoKey} />
+                            </div>
+                          )}
+                          {problem.media?.bgmKey && (
+                            <div>
+                              <p className="font-bold mb-2">BGM:</p>
+                              <ProblemAudio audioKey={problem.media.bgmKey} />
+                            </div>
+                          )}
+                        </div>
+                                                  {problem.media?.text && (
+                                                    <div>
+                                                      <p className="font-bold mb-2">텍스트:</p>
+                                                      <p className="text-sm whitespace-pre-wrap">
+                                                        {problem.media.text}
+                                                      </p>
+                                                    </div>
+                                                  )}
+                                                  {problem.hints && problem.hints.length > 0 && (
+                                                    <div>
+                                                      <p className="font-bold mb-2">힌트:</p>
+                                                      <ul className="list-inside text-sm">
+                                                        {problem.hints.map((hint, index) => (
+                                                          <li key={index}>
+                                                            <span className="mr-2">힌트 {index + 1}:</span>{hint}
+                                                          </li>
+                                                        ))}
+                                                      </ul>
+                                                    </div>
+                                                  )}                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </React.Fragment>
             ))}
           </TableBody>
         </Table>

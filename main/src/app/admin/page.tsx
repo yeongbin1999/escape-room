@@ -354,7 +354,7 @@ export default function AdminThemesPage() {
                             </div>
                             <div>
                               <p className="font-bold mb-2">설명:</p>
-                              <p className="text-sm bg-gray-800/50 p-3 rounded-md whitespace-pre-wrap">
+                              <p className="text-sm p-3 rounded-md whitespace-pre-wrap">
                                 {theme.description || '없음'}
                               </p>
                             </div>
