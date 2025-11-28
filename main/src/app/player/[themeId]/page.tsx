@@ -289,7 +289,7 @@ export default function PlayerGamePage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px] bg-[#1f1f1f] text-white border-slate-700/70">
           <DialogHeader>
-            <DialogTitle>{dialogMessage.includes("실패") || dialogMessage.includes("오답") ? "오류" : "성공"}</DialogTitle>
+            <DialogTitle>오답</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <p className="text-left">{dialogMessage}</p>
