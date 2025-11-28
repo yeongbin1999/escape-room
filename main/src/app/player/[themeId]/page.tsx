@@ -254,19 +254,19 @@ export default function PlayerGamePage() {
 
       {/* Game content - always show once theme data is loaded and no errors and no problem video playing */}
       {theme && !loading && !error && !isVideoPlaying && !isProblemVideoPlaying && (
-        <div className="w-full max-w-md p-8">
+        <div className="w-full max-w-3xl p-8">
           {displayedProblemImageUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img 
               src={displayedProblemImageUrl} 
               alt="Problem Media" 
-              className="w-full object-contain max-h-200 rounded-lg" 
+              className="w-full object-contain rounded-lg" 
             />
           )}
           {displayedProblemText && (
             <p className="text-md text-center mb-4 whitespace-pre-wrap">{displayedProblemText}</p>
           )}
-          <div className="relative group">
+          <div className="relative group max-w-md mx-auto mt-4">
             <Input 
               type="text" 
               placeholder="" 
