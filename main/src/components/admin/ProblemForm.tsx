@@ -509,7 +509,7 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
             <p>{dialogMessage}</p>
           </div>
           <DialogFooter>
-            <Button onClick={handleDialogClose} className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
+            <Button onClick={handleDialogClose} variant="outline" className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
               확인
             </Button>
           </DialogFooter>

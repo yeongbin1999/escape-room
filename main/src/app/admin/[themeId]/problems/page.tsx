@@ -157,7 +157,7 @@ export default function AdminProblemsPage() {
             </Button>
             
             <h2 className="text-xl font-bold">
-              '{theme?.title}' 테마 문제 관리
+              테마 '{theme?.title}' 문제 관리
             </h2>
           </div>
         </div>
@@ -215,7 +215,7 @@ export default function AdminProblemsPage() {
                   <Button variant="outline" className="mr-2 border-gray-700 hover:bg-[#282828]" onClick={() => { setEditingProblem(problem); setShowProblemModal(true); }}>
                     수정
                   </Button>
-                  <Button variant="destructive" onClick={() => handleDeleteClick(problem)}>
+                  <Button variant="outline" onClick={() => handleDeleteClick(problem)} className="text-red-400 border-red-700 hover:bg-red-900/50 hover:text-red-300">
                     삭제
                   </Button>
                 </TableCell>
