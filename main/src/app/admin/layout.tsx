@@ -56,7 +56,6 @@ export default function AdminLayout({
   };
 
   if (loading || role !== 'admin') {
-    // PlayerLayout과 동일한 로딩 스피너 UI 적용
     return (
       <div className="flex items-center justify-center h-screen bg-[#1f1f1f] text-white">
         <svg className="animate-spin h-8 w-8 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
