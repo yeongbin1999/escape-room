@@ -50,7 +50,7 @@ const ACCEPTED_FILE_TYPES = {
   openingBgmKey: 'audio/mp3,audio/wav,audio/ogg,audio/mpeg',
 };
 const ACCEPTED_FILE_DESCRIPTIONS = {
-    thumbnailKey: 'JPG, PNG, WebP, GIF 등의 이미지 파일',
+    thumbnailKey: 'JPG, PNG, WebP, GIF 등의 이미지 파일 미선택시 기본이미지',
     openingVideoKey: 'MP4, WebM, OGG, MOV 등의 비디오 파일',
     openingBgmKey: 'MP3, WAV, OGG 등의 오디오 파일',
 };
@@ -69,7 +69,7 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
       description: initialData?.description || "",
       openingVideoKey: initialData?.openingVideoKey || "",
       openingBgmKey: initialData?.openingBgmKey || "",
-      thumbnailKey: initialData?.thumbnailKey || "default",
+      thumbnailKey: initialData?.thumbnailKey || "",
       isActive: initialData?.isActive || false,
     },
     mode: "onChange",
@@ -209,7 +209,11 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
             name="title"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-white">제목<span className="text-red-500">*</span></FormLabel>
+                <FormLabel className="text-white">
+                  <span className="flex items-center"> 
+                    제목<span className="text-red-500 ml-0">*</span> 
+                  </span>
+                </FormLabel>
                 <FormControl>
                   <Input placeholder="테마 제목" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
                 </FormControl>
@@ -222,7 +226,11 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
             name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-white">설명<span className="text-red-500">*</span></FormLabel>
+                <FormLabel className="text-white">
+                  <span className="flex items-center"> 
+                    설명<span className="text-red-500 ml-0">*</span> 
+                  </span>
+                </FormLabel>
                 <FormControl>
                   <Textarea placeholder="테마 설명" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
                 </FormControl>
@@ -231,8 +239,8 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
             )}
           />
 
-          <FileUploadField name="thumbnailKey" label="썸네일 이미지" />
-          <FileUploadField name="openingVideoKey" label="오프닝 비디오" />
+          <FileUploadField name="thumbnailKey" label="메인 이미지" />
+          <FileUploadField name="openingVideoKey" label="오프닝 영상" />
           <FileUploadField name="openingBgmKey" label="오프닝 BGM" />
 
           <FormField
@@ -267,7 +275,7 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
             <p>{dialogMessage}</p>
           </div>
           <DialogFooter>
-            <Button onClick={handleDialogClose} className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
+            <Button onClick={handleDialogClose} variant="outline" className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
               확인
             </Button>
           </DialogFooter>
