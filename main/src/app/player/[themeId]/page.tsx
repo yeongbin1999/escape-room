@@ -9,7 +9,16 @@ import AudioPlayer from '@/components/player/AudioPlayer';
 import { useMediaUrl } from '@/lib/useMediaUrl';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { IoReturnDownBackSharp } from "react-icons/io5";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function PlayerGamePage() {
   const params = useParams();
@@ -34,77 +43,109 @@ export default function PlayerGamePage() {
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isBgmPlaying, setIsBgmPlaying] = useState(false);
   const [isProblemVideoPlaying, setIsProblemVideoPlaying] = useState(false);
-  const [isProblemBgmPlaying, setIsProblemBgmPlaying] = useState(false);
-  const [hasMediaStarted, setHasMediaStarted] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false); // State for submission loading
+    const [isProblemBgmPlaying, setIsProblemBgmPlaying] = useState(false);   // New state
+        const [hasMediaStarted, setHasMediaStarted] = useState(false);
+        const [isSubmitting, setIsSubmitting] = useState(false); // State for submission loading
+    
+        // States for generic dialog
+        const [isDialogOpen, setIsDialogOpen] = useState(false);
+        const [dialogMessage, setDialogMessage] = useState("");
+    
+        const handleDialogClose = useCallback(() => {
+          setIsDialogOpen(false);
+          setDialogMessage("");
+        }, []);
+      
+        const [displayedProblemImageKey, setDisplayedProblemImageKey] = useState<string | null>(null); // New state for problem image
+        const [displayedProblemText, setDisplayedProblemText] = useState<string | null>(null);     // New state for problem text
+  
+    const displayedProblemImageUrl = useMediaUrl(displayedProblemImageKey); // URL for displayed problem image
+  
 
-  // Handler for when a problem-specific video ends
-  const handleProblemVideoEnd = useCallback(() => {
-    setIsProblemVideoPlaying(false);
-    if (activeProblemBgmKey && problemBgmUrl) {
-      setIsProblemBgmPlaying(true);
-    }
-  }, [activeProblemBgmKey, problemBgmUrl]);
-
-  const handleAnswerSubmit = useCallback(async () => {
-    console.log("handleAnswerSubmit: Function called.");
-    if (!themeId || typeof themeId !== 'string' || !problems.length || isSubmitting) { // Prevent multiple submissions
-      console.log("handleAnswerSubmit: Guard condition met.", { themeId, problemsLength: problems.length, isSubmitting });
-      return;
-    }
-
-    setIsSubmitting(true); // Start submitting
-    console.log("handleAnswerSubmit: Submission started.");
-
-    try {
-      const allTriggerProblems = problems.filter(p => p.type === "trigger");
-      console.log("handleAnswerSubmit: All trigger problems found:", allTriggerProblems);
-
-      const matchingTriggerProblem = allTriggerProblems.find(p => answerInput.toLowerCase() === p.solution.toLowerCase());
-
-      if (matchingTriggerProblem) {
-        console.log("handleAnswerSubmit: Correct answer found for problem:", matchingTriggerProblem);
-        setIsVideoPlaying(false);        // Stop theme video
-        setIsBgmPlaying(false);          // Stop theme BGM
-        setIsProblemVideoPlaying(false); // Stop problem video (explicitly)
-        setIsProblemBgmPlaying(false);   // Stop problem BGM (explicitly)
-        setAnswerInput('');              // Clear input
-        console.log("handleAnswerSubmit: All media playback states reset to false.");
-
-
-        // Set problem specific media keys
-        setActiveProblemVideoKey(matchingTriggerProblem.media?.videoKey || null);
-        setActiveProblemBgmKey(matchingTriggerProblem.media?.bgmKey || null);
-        console.log("handleAnswerSubmit: Problem media keys set.", { videoKey: matchingTriggerProblem.media?.videoKey, bgmKey: matchingTriggerProblem.media?.bgmKey });
-
-
-        // Conditional playback of problem media
-        if (matchingTriggerProblem.media?.videoKey) {
-          setIsProblemVideoPlaying(true);
-          console.log("handleAnswerSubmit: Playing problem video.");
-        } else if (matchingTriggerProblem.media?.bgmKey) {
-          setIsProblemBgmPlaying(true);
-          console.log("handleAnswerSubmit: Playing problem BGM.");
-        } else {
-          console.log("handleAnswerSubmit: Matching trigger problem has no media. No problem media will play.");
-        }
-      } else {
-        // Optional: Provide feedback for incorrect answer
-        console.log("handleAnswerSubmit: Incorrect answer or no matching trigger problem found.");
+  
+  
+    const handleProblemVideoEnd = useCallback(() => {
+      setIsProblemVideoPlaying(false);
+      if (activeProblemBgmKey && problemBgmUrl) {
+        setIsProblemBgmPlaying(true);
       }
-    } finally {
-      setIsSubmitting(false); // End submitting
-      console.log("handleAnswerSubmit: Submission ended.");
-    }
-  }, [answerInput, problems, themeId, isSubmitting]);
+    }, [activeProblemBgmKey, problemBgmUrl]);
+  
+    const handleAnswerSubmit = useCallback(async () => {
+      console.log("handleAnswerSubmit: Function called.");
+      if (!themeId || typeof themeId !== 'string' || !problems.length || isSubmitting) { // Prevent multiple submissions
+        console.log("handleAnswerSubmit: Guard condition met.", { themeId, problemsLength: problems.length, isSubmitting });
+        return;
+      }
+  
+      setIsSubmitting(true); // Start submitting
+      console.log("handleAnswerSubmit: Submission started.");
+  
+      try {
+        const allTriggerProblems = problems.filter(p => p.type === "trigger");
+        console.log("handleAnswerSubmit: All trigger problems found:", allTriggerProblems);
+  
+        const matchingTriggerProblem = allTriggerProblems.find(p => answerInput.trim() === p.solution);
+  
+        // Reset displayed problem media
+        setDisplayedProblemImageKey(null);
+        setDisplayedProblemText(null);
+  
+        if (matchingTriggerProblem) {
+          console.log("handleAnswerSubmit: Correct answer found for problem:", matchingTriggerProblem);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    console.log("handleKeyDown: Key pressed -", e.key);
-    if (e.key === 'Enter') {
-      console.log("handleKeyDown: Enter key detected, calling handleAnswerSubmit.");
-      handleAnswerSubmit();
-    }
-  }, [handleAnswerSubmit]);
+          
+          setIsVideoPlaying(false);        // Stop theme video
+          setIsBgmPlaying(false);          // Stop theme BGM
+          setIsProblemVideoPlaying(false); // Stop problem video (explicitly)
+          setIsProblemBgmPlaying(false);   // Stop problem BGM (explicitly)
+          setAnswerInput('');              // Clear input
+          console.log("handleAnswerSubmit: All media playback states reset to false.");
+  
+  
+          // Set problem specific media keys
+          setActiveProblemVideoKey(matchingTriggerProblem.media?.videoKey || null);
+          setActiveProblemBgmKey(matchingTriggerProblem.media?.bgmKey || null);
+          setDisplayedProblemImageKey(matchingTriggerProblem.media?.imageKey || null); // Set problem image
+          setDisplayedProblemText(matchingTriggerProblem.media?.text || null);     // Set problem text
+          console.log("handleAnswerSubmit: Problem media keys and display media set.", { videoKey: matchingTriggerProblem.media?.videoKey, bgmKey: matchingTriggerProblem.media?.bgmKey, imageKey: matchingTriggerProblem.media?.imageKey, text: matchingTriggerProblem.media?.text });
+  
+  
+          // Conditional playback of problem media
+          if (matchingTriggerProblem.media?.videoKey) {
+            setIsProblemVideoPlaying(true);
+            console.log("handleAnswerSubmit: Playing problem video.");
+          } else if (matchingTriggerProblem.media?.bgmKey) {
+            setIsProblemBgmPlaying(true);
+            console.log("handleAnswerSubmit: Playing problem BGM.");
+          } else {
+            console.log("handleAnswerSubmit: Matching trigger problem has no media. No problem media will play.");
+          }
+        } else {
+          console.log("handleAnswerSubmit: Incorrect answer or no matching trigger problem found.");
+          setAnswerInput(''); // Clear input even on incorrect answer
+          setDialogMessage("오답입니다. 다시 시도해주세요.");
+          setIsDialogOpen(true);
+        }
+      } finally {
+        setIsSubmitting(false); // End submitting
+        console.log("handleAnswerSubmit: Submission ended.");
+      }
+    }, [answerInput, problems, themeId, isSubmitting]);
+  
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+      console.log("handleKeyDown: Key pressed -", e.key);
+      // Check if IME is composing (e.g., for Korean, Japanese, Chinese input)
+      if (e.nativeEvent.isComposing) {
+        // If composing, do nothing. Let the IME handle the Enter key.
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault(); // Prevent default Enter key behavior (e.g., form submission)
+        console.log("handleKeyDown: Enter key detected, calling handleAnswerSubmit.");
+        handleAnswerSubmit();
+      }
+    }, [handleAnswerSubmit]);
 
 
   useEffect(() => {
@@ -214,6 +255,17 @@ export default function PlayerGamePage() {
       {/* Game content - always show once theme data is loaded and no errors and no problem video playing */}
       {theme && !loading && !error && !isVideoPlaying && !isProblemVideoPlaying && (
         <div className="w-full max-w-md p-8">
+          {displayedProblemImageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img 
+              src={displayedProblemImageUrl} 
+              alt="Problem Media" 
+              className="w-full object-contain max-h-200 rounded-lg" 
+            />
+          )}
+          {displayedProblemText && (
+            <p className="text-md text-center mb-4 whitespace-pre-wrap">{displayedProblemText}</p>
+          )}
           <div className="relative group">
             <Input 
               type="text" 
@@ -226,18 +278,29 @@ export default function PlayerGamePage() {
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-white cursor-pointer"
                  onClick={handleAnswerSubmit}
             >
-              {isSubmitting ? (
-                <svg className="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : (
-                <IoReturnDownBackSharp size={24} />
-              )}
+             
+              <IoReturnDownBackSharp size={24} />
             </div>
           </div>
         </div>
       )}
+
+      {/* Generic Dialog for messages */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-[#1f1f1f] text-white border-slate-700/70">
+          <DialogHeader>
+            <DialogTitle>{dialogMessage.includes("실패") || dialogMessage.includes("오답") ? "오류" : "성공"}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-left">{dialogMessage}</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleDialogClose} type="button" variant="outline" className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
+              확인
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
