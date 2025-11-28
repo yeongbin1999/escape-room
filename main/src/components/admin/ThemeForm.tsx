@@ -36,9 +36,9 @@ interface ThemeFormProps {
 const themeFormSchema = z.object({
   title: z.string().min(1, { message: "제목은 필수입니다." }),
   description: z.string().min(1, { message: "설명은 필수입니다." }),
-  openingVideoKey: z.string().optional(),
-  openingBgmKey: z.string().optional(),
-  thumbnailKey: z.string().optional(),
+  openingVideoKey: z.string().nullable().optional(), 
+  openingBgmKey: z.string().nullable().optional(),
+  thumbnailKey: z.string().nullable().optional(),
   isActive: z.boolean(),
 });
 

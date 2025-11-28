@@ -17,3 +17,21 @@ export const r2 = new S3Client({
     secretAccessKey: R2_SECRET_ACCESS_KEY || "",
   },
 });
+
+export const deleteR2Object = async (key: string): Promise<void> => {
+  if (!R2_BUCKET_NAME) {
+    console.warn("R2_BUCKET_NAME is not defined. Skipping R2 object deletion for key:", key);
+    return;
+  }
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+    });
+    await r2.send(command);
+    console.log(`Successfully deleted R2 object: ${key}`);
+  } catch (error) {
+    console.error(`Error deleting R2 object ${key}:`, error);
+    throw error; // Re-throw the error for upstream handling
+  }
+};

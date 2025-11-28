@@ -10,18 +10,13 @@ export function useMediaUrl(key: string | null | undefined): string | null {
       return;
     }
 
-    // key가 'default'이면 로컬 public 이미지 경로를 사용
-    if (key === 'default') {
-      setImageUrl('/default.png');
-      return;
-    }
-
     // 그 외의 경우, Presigned URL을 서버에 요청
     let isCancelled = false;
+    const mediaKey: string = key; // Ensure key is treated as string for encodeURIComponent
 
     async function fetchSignedUrl() {
       try {
-        const response = await fetch(`/api/signed-url?key=${encodeURIComponent(key)}`);
+        const response = await fetch(`/api/signed-url?key=${encodeURIComponent(mediaKey)}`);
         if (!response.ok) {
           throw new Error('Failed to fetch signed URL');
         }

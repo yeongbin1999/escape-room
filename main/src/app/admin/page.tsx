@@ -52,7 +52,7 @@ import Image from 'next/image';
 
 function ThemeImage({ imageKey }: { imageKey: string | null | undefined }) {
   const mediaUrl = useMediaUrl(imageKey);
-  const imageUrl = mediaUrl || '/default.png'; // Use default.png if mediaUrl is falsy
+  const imageUrl = mediaUrl || '/image.png'; // Use default.png if mediaUrl is falsy
 
   return (
     <div className="relative w-64 h-36 bg-gray-800 rounded-md overflow-hidden">
