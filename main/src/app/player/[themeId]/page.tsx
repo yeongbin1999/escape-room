@@ -176,15 +176,38 @@ export default function PlayerGamePage() {
   }, [themeId]);
 
   useEffect(() => {
-    if (!loading && !error && theme && !hasMediaStarted) {
-      if (theme.openingVideoKey && videoUrl) {
-        setIsVideoPlaying(true);
-        setHasMediaStarted(true);
-      } else if (theme.openingBgmKey && bgmUrl) {
-        setIsBgmPlaying(true);
-        setHasMediaStarted(true);
-      }
+    if (loading || error || !theme || hasMediaStarted) {
+      return;
     }
+
+    let startedPrimaryMedia = false;
+
+    // 1. Prioritize video playback
+    if (theme.openingVideoKey && videoUrl) {
+      setIsVideoPlaying(true);
+      startedPrimaryMedia = true;
+      setHasMediaStarted(true); // Set only if video actually starts
+      console.log("Started opening video.");
+    } 
+    // 2. If no video started (either no key or URL not ready), try BGM
+    else if (theme.openingBgmKey && bgmUrl) {
+      setIsBgmPlaying(true);
+      startedPrimaryMedia = true;
+      setHasMediaStarted(true); // Set if BGM starts as fallback
+      console.log("Started opening BGM as fallback.");
+    }
+
+    // If there's no media (video or BGM) to play at all, mark as started
+    // to prevent endless re-evaluation
+    if (!theme.openingVideoKey && !theme.openingBgmKey) {
+        setHasMediaStarted(true);
+        console.log("No opening media specified for theme.");
+    }
+
+    // Note: If videoKey exists but videoUrl is not ready, hasMediaStarted remains false.
+    // This allows the effect to re-run when videoUrl eventually resolves,
+    // giving the video another chance to play.
+
   }, [loading, error, theme, hasMediaStarted, videoUrl, bgmUrl]);
 
   const handleVideoEnd = () => {

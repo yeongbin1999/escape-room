@@ -177,7 +177,14 @@ export default function PlayerPage() {
 
       {selectedThemeForConfirmation && (
         <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-          <AlertDialogContent className="
+          <AlertDialogContent 
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                confirmStartGame();
+              }
+            }}
+            className="
             bg-[#161616] 
             text-white 
             border-slate-600 
@@ -185,7 +192,7 @@ export default function PlayerPage() {
           ">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-orange-400">
-                {selectedThemeForConfirmation.title} 테마 시작 확인
+                {selectedThemeForConfirmation.title} 테마
               </AlertDialogTitle>
               <AlertDialogDescription className="text-gray-400">
                 선택한 테마의 게임을 지금 바로 시작하시겠습니까?

@@ -7,6 +7,16 @@ import withPWA from "next-pwa";
 const nextConfig: NextConfig = {
   reactStrictMode: true, // 이 설정이 문제가 되는 항목입니다. 아래 2번을 보세요.
   turbopack: {}, // Turbopack 사용 시 Webpack 설정과의 충돌을 방지하기 위한 빈 설정
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.*.r2.cloudflarestorage.com',
+        port: '',
+        pathname: '/**',
+      },
+    ],
+  },
   // ... 기타 Next.js 설정
 };
 
