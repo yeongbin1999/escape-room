@@ -10,6 +10,7 @@ import { useMediaUrl } from '@/lib/useMediaUrl';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { IoReturnDownBackSharp } from "react-icons/io5";
+import { GoXCircle } from "react-icons/go";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +58,7 @@ export default function PlayerGamePage() {
   // 일반 다이얼로그 상태 (주로 오답 메시지)
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
   // 다이얼로그 닫기 핸들러
   const handleDialogClose = useCallback(() => {
@@ -82,33 +84,36 @@ export default function PlayerGamePage() {
     setIsSubmitting(true);
 
     try {
-      const allTriggerProblems = problems.filter(p => p.type === "trigger");
-      const matchingTriggerProblem = allTriggerProblems.find(p => answerInput.trim() === p.solution);
+      const currentProblem = problems[0]; // 풀어야 할 문제는 항상 정렬된 목록의 첫 번째
+      const isCorrect = answerInput.trim() === currentProblem.solution;
 
-      // 문제 이미지/텍스트 초기화
-      setDisplayedProblemImageKey(null);
-      setDisplayedProblemText(null);
+      if (isCorrect) {
+        // 문제 이미지/텍스트 초기화 (정답일 때만)
+        setDisplayedProblemImageKey(null);
+        setDisplayedProblemText(null);
 
-      if (matchingTriggerProblem) {
         // 정답인 경우: 모든 미디어 정지
-        setIsVideoPlaying(false);        // 테마 비디오 정지
-        setIsBgmPlaying(false);          // 테마 BGM 정지
-        setIsProblemVideoPlaying(false); // 문제 비디오 정지
-        setIsProblemBgmPlaying(false);   // 문제 BGM 정지
-        setAnswerInput('');              // 입력 초기화
+        setIsVideoPlaying(false);
+        setIsBgmPlaying(false);
+        setIsProblemVideoPlaying(false);
+        setIsProblemBgmPlaying(false);
+        setAnswerInput('');
 
         // 문제별 미디어 키 설정
-        setActiveProblemVideoKey(matchingTriggerProblem.media?.videoKey || null);
-        setActiveProblemBgmKey(matchingTriggerProblem.media?.bgmKey || null);
-        setDisplayedProblemImageKey(matchingTriggerProblem.media?.imageKey || null);
-        setDisplayedProblemText(matchingTriggerProblem.media?.text || null);
+        setActiveProblemVideoKey(currentProblem.media?.videoKey || null);
+        setActiveProblemBgmKey(currentProblem.media?.bgmKey || null);
+        setDisplayedProblemImageKey(currentProblem.media?.imageKey || null);
+        setDisplayedProblemText(currentProblem.media?.text || null);
 
         // 조건부 미디어 재생 시작
-        if (matchingTriggerProblem.media?.videoKey) {
+        if (currentProblem.media?.videoKey) {
           setIsProblemVideoPlaying(true); // 비디오 우선 재생
-        } else if (matchingTriggerProblem.media?.bgmKey) {
+        } else if (currentProblem.media?.bgmKey) {
           setIsProblemBgmPlaying(true); // 비디오 없으면 BGM 재생
         }
+
+        // 푼 문제를 목록에서 제거
+        setProblems(prevProblems => prevProblems.slice(1));
       } else {
         // 오답인 경우
         setAnswerInput(''); // 입력 초기화
@@ -147,7 +152,10 @@ export default function PlayerGamePage() {
         if (fetchedTheme) {
           setTheme(fetchedTheme);
           const fetchedProblems = await getProblemsByTheme(themeId);
-          setProblems(fetchedProblems);
+          const triggerProblems = fetchedProblems
+            .filter(p => p.type === 'trigger')
+            .sort((a, b) => a.number - b.number);
+          setProblems(triggerProblems);
         } else {
           setError("테마를 찾을 수 없습니다.");
         }
@@ -163,27 +171,36 @@ export default function PlayerGamePage() {
 
   // 초기 미디어 재생 및 오프닝 이미지/텍스트 표시
   useEffect(() => {
-    if (!loading && !error && theme && !hasMediaStarted) {
-      // 오프닝 이미지/텍스트 설정 (항상 설정)
-      if (theme.openingImageKey) {
-        setDisplayedProblemImageKey(theme.openingImageKey);
-      }
-      if (theme.openingText) {
-        setDisplayedProblemText(theme.openingText);
-      }
+    if (loading || error || !theme || hasMediaStarted) {
+      return;
+    }
 
-      // 미디어 우선순위: 비디오 > BGM > 이미지/텍스트만
-      if (theme.openingVideoKey && videoUrl) {
+    // 오프닝 콘텐츠 설정
+    if (theme.openingImageKey) {
+      setDisplayedProblemImageKey(theme.openingImageKey);
+    }
+    if (theme.openingText) {
+      setDisplayedProblemText(theme.openingText);
+    }
+
+    // 미디어 재생 로직
+    if (theme.openingVideoKey) {
+      // 비디오 키가 있으면 URL이 준비될 때까지 기다렸다가 재생
+      if (videoUrl) {
         setIsVideoPlaying(true);
         setHasMediaStarted(true);
-      } else if (theme.openingBgmKey && bgmUrl) {
+      }
+    } else if (theme.openingBgmKey) {
+      // 비디오 키가 없고 BGM 키가 있으면 BGM URL을 기다렸다가 재생
+      if (bgmUrl) {
         setIsBgmPlaying(true);
         setHasMediaStarted(true);
-      } else if (theme.openingImageKey || theme.openingText) {
-        setHasMediaStarted(true); // 미디어 없이 콘텐츠만 있어도 시작으로 간주
       }
+    } else {
+      // 미디어가 없는 경우
+      setHasMediaStarted(true);
     }
-  }, [loading, error, theme, hasMediaStarted, videoUrl, bgmUrl]); // 관련 상태/데이터 변경 시 재실행
+  }, [loading, error, theme, hasMediaStarted, videoUrl, bgmUrl]);
 
   // 테마 오프닝 비디오 재생 종료 핸들러
   const handleVideoEnd = useCallback(() => {
@@ -217,6 +234,13 @@ export default function PlayerGamePage() {
 
   return (
     <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center justify-center">
+      
+      {/* 테마 선택으로 돌아가기 버튼 (모든 문제 해결 시) */}
+      {problems.length === 0 && (
+        <Link href="/player" className="absolute top-4 right-4 z-50 text-white hover:text-gray-300">
+          <GoXCircle size={32} />
+        </Link>
+      )}
       
       {/* 1. 문제 반응 비디오 플레이어 (최우선 오버레이) */}
       {isProblemVideoPlaying && problemVideoUrl && (
@@ -267,7 +291,8 @@ export default function PlayerGamePage() {
             <img 
               src={displayedProblemImageUrl} 
               alt="Problem Media" 
-              className="w-full object-contain rounded-lg" 
+              className="w-full object-contain rounded-lg cursor-mag" 
+              onClick={() => setIsImageModalOpen(true)}
             />
           )}
           {displayedProblemText && (
@@ -313,6 +338,21 @@ export default function PlayerGamePage() {
               확인
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 9. 이미지 확대 모달 */}
+      <Dialog open={isImageModalOpen} onOpenChange={setIsImageModalOpen}>
+        <DialogContent className="max-w-7xl max-h-[95vh] bg-transparent border-none flex items-center justify-center p-0">
+          <DialogHeader>
+            <DialogTitle className="sr-only">확대 이미지</DialogTitle>
+          </DialogHeader>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={displayedProblemImageUrl || ''}
+            alt="Enlarged Problem Media"
+            className="w-full h-full object-contain"
+          />
         </DialogContent>
       </Dialog>
     </div>

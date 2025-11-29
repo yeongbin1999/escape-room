@@ -40,3 +40,7 @@ input[type="number"] {
 input[type="number"] {
   appearance: textfield;
 }
+
+.cursor-mag {
+  cursor: url('/magnifying-glass.svg'), auto;
+}
