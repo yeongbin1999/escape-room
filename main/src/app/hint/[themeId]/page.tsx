@@ -187,8 +187,11 @@ export default function HintProblemPage() {
         {theme?.title || "로딩 중..."}
       </h1>
 
-      <div className="w-full max-w-md p-4 bg-[#282828] rounded-lg shadow-lg">
-        <div className="relative group">
+      {/* 메인 컨테이너: flex-grow와 flex-col 유지 */}
+      <div className="w-full max-w-md p-4 mb-4 bg-[#282828] rounded-lg shadow-lg flex-grow flex flex-col">
+        
+        {/* 입력창 (상단 고정) */}
+        <div className="relative group mb-4">
           <Input
             type="text"
             placeholder="해당 문제의 코드를 입력하면 힌트를 얻을 수 있습니다."
@@ -205,9 +208,13 @@ export default function HintProblemPage() {
           </div>
         </div>
 
-        {foundHints.length > 0 && (
-          <div className="mt-6 p-4 bg-[#1f1f1f] border border-[#4a4a4a] rounded-md">
-            <div className="flex justify-between items-center mb-2">
+        {/* 🌟 힌트 표시 영역: flex-grow로 남은 공간 전체를 채우고, 내부에서 justify-center로 내용 중앙 정렬 */}
+        {foundHints.length > 0 ? (
+          // 힌트 박스 자체에 flex-grow를 적용하여 남은 공간 모두 채우기
+          <div className="mt-2 p-4 bg-[#1f1f1f] border border-[#4a4a4a] rounded-md flex-grow flex flex-col">
+            
+            {/* 상단 버튼 및 제목 영역 */}
+            <div className="flex justify-between items-center mb-2 flex-shrink-0">
                 <Button 
                     onClick={handlePrevHint} 
                     disabled={currentHintIndex === 0}
@@ -216,7 +223,7 @@ export default function HintProblemPage() {
                 >
                     <FaArrowLeft />
                 </Button>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-white text-center">
                     힌트 {currentHintIndex + 1}
                 </h2>
                 <Button 
@@ -228,7 +235,18 @@ export default function HintProblemPage() {
                     <FaArrowRight />
                 </Button>
             </div>
-            <p className="text-gray-200 text-center mt-5 whitespace-pre-wrap">{foundHints[currentHintIndex]}</p>
+            
+            {/* 힌트 내용: flex-grow로 남은 공간 모두 채우고, justify-center 및 items-center로 내용 중앙 정렬 */}
+            <div className="flex-grow flex items-center justify-center overflow-y-auto">
+              <p className="text-gray-200 text-center whitespace-pre-wrap p-2">
+                {foundHints[currentHintIndex]}
+              </p>
+            </div>
+          </div>
+        ) : (
+          /* 힌트가 없을 때 안내 메시지: flex-grow로 남은 공간 모두 채우고, 내용 중앙 정렬 */
+          <div className="mt-2 p-4 bg-[#1f1f1f] border border-[#4a4a4a] rounded-md flex-grow flex items-center justify-center">
+              <p className="text-gray-400">문제 코드를 입력해 힌트를 받아보세요.</p>
           </div>
         )}
       </div>
