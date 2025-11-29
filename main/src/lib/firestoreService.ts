@@ -12,6 +12,7 @@ import {
   Timestamp,
   QueryDocumentSnapshot,
   DocumentData,
+  writeBatch, // Added writeBatch
 } from "firebase/firestore";
 
 import type {
@@ -219,4 +220,16 @@ export const getProblemCountByTheme = async (themeId: string): Promise<number> =
   const q = query(getProblemsSubCollection(themeId));
   const snapshot = await getDocs(q);
   return snapshot.size;
+};
+
+export const updateProblemOrder = async (
+  themeId: string,
+  problemUpdates: { id: string; number: number }[]
+): Promise<void> => {
+  const batch = writeBatch(db);
+  problemUpdates.forEach((update) => {
+    const problemRef = doc(db, "themes", themeId, "problems", update.id);
+    batch.update(problemRef, { number: update.number, updatedAt: Timestamp.now() });
+  });
+  await batch.commit();
 };
