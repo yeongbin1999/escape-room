@@ -5,7 +5,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { Problem, ProblemType } from "@/types/dbTypes"; 
-import { addProblem, updateProblem } from "@/lib/firestoreService"; 
+import { addProblem, updateProblem, getProblemsByTheme } from "@/lib/firestoreService"; 
 import { FaUpload, FaTimes, FaSpinner, FaPlus, FaTrash } from "react-icons/fa"; // 아이콘 추가
 import {
   Form,
@@ -250,6 +250,39 @@ export default function ProblemForm({ initialData, themeId, onSuccess }: Problem
   async function onSubmit(values: ProblemFormValues) {
     setIsSubmitting(true);
     try {
+      // Fetch existing problems for duplicate check
+      const existingProblems = await getProblemsByTheme(values.themeId);
+
+      // Filter out the current problem if it's an update operation
+      const problemsToCheck = initialData
+        ? existingProblems.filter(p => p.id !== initialData.id)
+        : existingProblems;
+
+      // Duplicate check for code, title, and solution
+      const trimmedCode = values.code.trim();
+      const trimmedTitle = values.title.trim();
+      const trimmedSolution = values.solution.trim();
+
+      const duplicateByCode = problemsToCheck.find(p => p.code.trim() === trimmedCode);
+      const duplicateByTitle = problemsToCheck.find(p => p.title.trim() === trimmedTitle);
+      const duplicateBySolution = problemsToCheck.find(p => p.solution.trim() === trimmedSolution);
+
+      if (duplicateByCode) {
+        setDialogMessage(`이미 존재하는 문제 코드(${trimmedCode})입니다.`);
+        setIsDialogOpen(true);
+        return;
+      }
+      if (duplicateByTitle) {
+        setDialogMessage(`이미 존재하는 문제 제목(${trimmedTitle})입니다.`);
+        setIsDialogOpen(true);
+        return;
+      }
+      if (duplicateBySolution) {
+        setDialogMessage(`이미 존재하는 정답(${trimmedSolution})입니다.`);
+        setIsDialogOpen(true);
+        return;
+      }
+
       // 힌트 객체 배열을 string 배열로 변환하고 빈 값 제거
       const hintsArray = values.hints
         ? values.hints.map(h => h.value.trim()).filter(h => h.length > 0)

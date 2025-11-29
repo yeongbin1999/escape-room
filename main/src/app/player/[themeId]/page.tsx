@@ -7,7 +7,6 @@ import { Theme, Problem } from '@/types/dbTypes';
 import VideoPlayer from '@/components/player/VideoPlayer';
 import AudioPlayer from '@/components/player/AudioPlayer';
 import { useMediaUrl } from '@/lib/useMediaUrl';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { IoReturnDownBackSharp } from "react-icons/io5";

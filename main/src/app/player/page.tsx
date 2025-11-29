@@ -88,9 +88,6 @@ export default function PlayerPage() {
     setSelectedThemeForConfirmation(null);
   };
 
-
-
-
   const cancelStartGame = () => {
     setIsConfirmDialogOpen(false);
     setSelectedThemeForConfirmation(null);

@@ -226,7 +226,7 @@ export default function AdminProblemsPage() {
               onClick={() => router.push('/admin')} 
               className="p-2 h-8 w-8 ml-2 text-gray-400 hover:bg-[#282828] hover:text-white rounded-full flex-shrink-0"
             >
-              <IoIosArrowBack className="h-10 w-10" /> 
+              <IoIosArrowBack className="h-8 w-8" /> 
             </Button>
             
             <h2 className="text-xl font-bold">
