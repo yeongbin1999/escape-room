@@ -8,6 +8,8 @@ export interface Theme {
   updatedAt: Timestamp;
   openingVideoKey?: string | null;
   openingBgmKey?: string | null;
+  openingImageKey?: string | null; // New field for opening image
+  openingText?: string | null;     // New field for opening text
   thumbnailKey?: string | null;
   isActive: boolean;
 }

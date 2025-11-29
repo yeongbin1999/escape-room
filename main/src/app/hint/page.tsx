@@ -105,7 +105,7 @@ export default function HintThemeListPage() {
           ">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-orange-400">
-                {selectedThemeForConfirmation.title} 테마
+                {selectedThemeForConfirmation.title}
               </AlertDialogTitle>
               <AlertDialogDescription className="text-gray-400">
                 선택한 테마의 힌트 앱을 시작하시겠습니까? <br></br>(오프라인 사용을 위해 데이터를 다운로드합니다.)

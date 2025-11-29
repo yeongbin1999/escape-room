@@ -192,7 +192,7 @@ export default function PlayerPage() {
           ">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-orange-400">
-                {selectedThemeForConfirmation.title} 테마
+                {selectedThemeForConfirmation.title}
               </AlertDialogTitle>
               <AlertDialogDescription className="text-gray-400">
                 선택한 테마의 게임을 지금 바로 시작하시겠습니까?

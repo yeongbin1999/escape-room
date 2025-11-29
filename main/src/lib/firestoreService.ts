@@ -37,6 +37,8 @@ const docToTheme = (doc: QueryDocumentSnapshot<DocumentData>): Theme => ({
   updatedAt: doc.data().updatedAt,
   openingVideoKey: doc.data().openingVideoKey,
   openingBgmKey: doc.data().openingBgmKey,
+  openingImageKey: doc.data().openingImageKey, // Include openingImageKey
+  openingText: doc.data().openingText,         // Include openingText
   thumbnailKey: doc.data().thumbnailKey,
   isActive: doc.data().isActive,
 });
@@ -130,7 +132,7 @@ export const deleteTheme = async (id: string): Promise<void> => {
     }
 
     // Delete associated R2 objects for the theme itself
-    const mediaKeys = [theme.thumbnailKey, theme.openingVideoKey, theme.openingBgmKey];
+    const mediaKeys = [theme.thumbnailKey, theme.openingVideoKey, theme.openingBgmKey, theme.openingImageKey];
     for (const key of mediaKeys) {
       if (key) {
         try {

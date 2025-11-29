@@ -3,9 +3,10 @@ import React, { useEffect, useRef } from 'react';
 
 interface AudioPlayerProps {
   src: string;
+  onEnded?: () => void; // New optional prop
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ src }) => {
+const AudioPlayer: React.FC<AudioPlayerProps> = ({ src, onEnded }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -16,7 +17,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ src }) => {
   }, [src]);
 
   return (
-    <audio ref={audioRef} src={src} loop autoPlay playsInline />
+    <audio ref={audioRef} src={src} loop autoPlay playsInline onEnded={onEnded} />
   );
 };
 

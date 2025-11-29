@@ -38,6 +38,8 @@ const themeFormSchema = z.object({
   description: z.string().min(1, { message: "설명은 필수입니다." }),
   openingVideoKey: z.string().nullable().optional(), 
   openingBgmKey: z.string().nullable().optional(),
+  openingImageKey: z.string().nullable().optional(),
+  openingText: z.string().nullable().optional(),
   thumbnailKey: z.string().nullable().optional(),
   isActive: z.boolean(),
 });
@@ -48,11 +50,13 @@ const ACCEPTED_FILE_TYPES = {
   thumbnailKey: 'image/jpeg,image/png,image/webp,image/gif',
   openingVideoKey: 'video/mp4,video/webm,video/ogg,video/quicktime',
   openingBgmKey: 'audio/mp3,audio/wav,audio/ogg,audio/mpeg',
+  openingImageKey: 'image/jpeg,image/png,image/webp,image/gif',
 };
 const ACCEPTED_FILE_DESCRIPTIONS = {
-    thumbnailKey: 'JPG, PNG, WebP, GIF 등의 이미지 파일 미선택시 기본이미지',
+    thumbnailKey: 'JPG, PNG, WebP, GIF 등의 이미지 파일 미선택 시 기본이미지',
     openingVideoKey: 'MP4, WebM, OGG, MOV 등의 비디오 파일',
     openingBgmKey: 'MP3, WAV, OGG 등의 오디오 파일',
+    openingImageKey: 'JPG, PNG, WebP, GIF 등의 이미지 파일',
 };
 
 export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
@@ -69,13 +73,15 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
       description: initialData?.description || "",
       openingVideoKey: initialData?.openingVideoKey || "",
       openingBgmKey: initialData?.openingBgmKey || "",
+      openingImageKey: initialData?.openingImageKey || "",
+      openingText: initialData?.openingText || "",
       thumbnailKey: initialData?.thumbnailKey || "",
       isActive: initialData?.isActive || false,
     },
     mode: "onChange",
   });
 
-  const handleFileUpload = async (file: File, fieldName: "openingVideoKey" | "openingBgmKey" | "thumbnailKey"): Promise<string | null> => {
+  const handleFileUpload = async (file: File, fieldName: "openingVideoKey" | "openingBgmKey" | "openingImageKey" | "thumbnailKey"): Promise<string | null> => {
     const acceptedTypes = ACCEPTED_FILE_TYPES[fieldName];
     if (acceptedTypes && !acceptedTypes.split(',').includes(file.type)) {
       const allowedExtensions = ACCEPTED_FILE_DESCRIPTIONS[fieldName];
@@ -111,7 +117,7 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
     }
   };
 
-  const FileUploadField = ({ name, label }: { name: "openingVideoKey" | "openingBgmKey" | "thumbnailKey", label: string }) => {
+  const FileUploadField = ({ name, label }: { name: "openingVideoKey" | "openingBgmKey" | "openingImageKey" | "thumbnailKey", label: string }) => {
     const currentKey = form.watch(name);
     const acceptAttr = ACCEPTED_FILE_TYPES[name];
     const uiDescription = ACCEPTED_FILE_DESCRIPTIONS[name];
@@ -172,6 +178,8 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
         ...values,
         openingVideoKey: values.openingVideoKey || null,
         openingBgmKey: values.openingBgmKey || null,
+        openingImageKey: values.openingImageKey || null,
+        openingText: values.openingText || null,
         thumbnailKey: values.thumbnailKey || null,
       };
 
@@ -215,7 +223,7 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
                   </span>
                 </FormLabel>
                 <FormControl>
-                  <Input placeholder="테마 제목" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
+                  <Input {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
                 </FormControl>
                 <FormMessage className="text-red-500 ml-2" />
               </FormItem>
@@ -232,7 +240,7 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
                   </span>
                 </FormLabel>
                 <FormControl>
-                  <Textarea placeholder="테마 설명" {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
+                  <Textarea {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
                 </FormControl>
                 <FormMessage className="text-red-500 ml-2" />
               </FormItem>
@@ -242,6 +250,27 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
           <FileUploadField name="thumbnailKey" label="메인 이미지" />
           <FileUploadField name="openingVideoKey" label="오프닝 영상" />
           <FileUploadField name="openingBgmKey" label="오프닝 BGM" />
+          <FileUploadField name="openingImageKey" label="오프닝 이미지" />
+          <FormField
+            control={form.control}
+            name="openingText"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-white">오프닝 텍스트</FormLabel>
+                <FormControl>
+                  <Textarea
+                      {...field}
+                      value={field.value ?? ""}
+                      className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0"
+                  />
+                </FormControl>
+                <FormDescription className="text-gray-400 ml-2">
+                  오프닝 미디어와 함께 표시될 텍스트입니다. (선택 사항)
+                </FormDescription>
+                <FormMessage className="text-red-500 ml-2" />
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={form.control}
@@ -259,7 +288,7 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
             )}
           />
           <div className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting || uploading !== null} className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
+            <Button type="submit" variant="outline" disabled={isSubmitting || uploading !== null} className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
               {isSubmitting ? "저장 중..." : (uploading ? "업로드 중..." : "저장")}
             </Button>
           </div>

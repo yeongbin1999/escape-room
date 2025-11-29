@@ -13,140 +13,127 @@ import { IoReturnDownBackSharp } from "react-icons/io5";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 export default function PlayerGamePage() {
   const params = useParams();
   const { themeId } = params;
 
+  // 테마 데이터 및 로딩/에러 상태
   const [theme, setTheme] = useState<Theme | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 테마의 오프닝 미디어 URL (커스텀 훅 사용)
   const videoUrl = useMediaUrl(theme?.openingVideoKey);
   const bgmUrl = useMediaUrl(theme?.openingBgmKey);
 
-  // State for user input and problem-specific media
+  // 사용자 입력 및 현재 활성화된 문제 미디어 키 상태
   const [answerInput, setAnswerInput] = useState('');
   const [activeProblemVideoKey, setActiveProblemVideoKey] = useState<string | null>(null);
   const [activeProblemBgmKey, setActiveProblemBgmKey] = useState<string | null>(null);
 
-  const problemVideoUrl = useMediaUrl(activeProblemVideoKey); // Triggered problem video URL
-  const problemBgmUrl = useMediaUrl(activeProblemBgmKey);   // Triggered problem BGM URL
+  // 활성화된 문제 미디어 URL
+  const problemVideoUrl = useMediaUrl(activeProblemVideoKey); 
+  const problemBgmUrl = useMediaUrl(activeProblemBgmKey);   
 
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [isBgmPlaying, setIsBgmPlaying] = useState(false);
-  const [isProblemVideoPlaying, setIsProblemVideoPlaying] = useState(false);
-    const [isProblemBgmPlaying, setIsProblemBgmPlaying] = useState(false);   // New state
-        const [hasMediaStarted, setHasMediaStarted] = useState(false);
-        const [isSubmitting, setIsSubmitting] = useState(false); // State for submission loading
-    
-        // States for generic dialog
-        const [isDialogOpen, setIsDialogOpen] = useState(false);
-        const [dialogMessage, setDialogMessage] = useState("");
-    
-        const handleDialogClose = useCallback(() => {
-          setIsDialogOpen(false);
-          setDialogMessage("");
-        }, []);
-      
-        const [displayedProblemImageKey, setDisplayedProblemImageKey] = useState<string | null>(null); // New state for problem image
-        const [displayedProblemText, setDisplayedProblemText] = useState<string | null>(null);     // New state for problem text
-  
-    const displayedProblemImageUrl = useMediaUrl(displayedProblemImageKey); // URL for displayed problem image
-  
+  // 미디어 재생 상태
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false); // 테마 오프닝 비디오
+  const [isBgmPlaying, setIsBgmPlaying] = useState(false);     // 테마 오프닝 BGM
+  const [isProblemVideoPlaying, setIsProblemVideoPlaying] = useState(false); // 문제 반응 비디오
+  const [isProblemBgmPlaying, setIsProblemBgmPlaying] = useState(false);     // 문제 반응 BGM
+  const [hasMediaStarted, setHasMediaStarted] = useState(false);             // 최초 미디어 시작 여부
+  const [isSubmitting, setIsSubmitting] = useState(false);                   // 정답 제출 로딩 상태
 
-  
-  
-    const handleProblemVideoEnd = useCallback(() => {
-      setIsProblemVideoPlaying(false);
-      if (activeProblemBgmKey && problemBgmUrl) {
-        setIsProblemBgmPlaying(true);
-      }
-    }, [activeProblemBgmKey, problemBgmUrl]);
-  
-    const handleAnswerSubmit = useCallback(async () => {
-      console.log("handleAnswerSubmit: Function called.");
-      if (!themeId || typeof themeId !== 'string' || !problems.length || isSubmitting) { // Prevent multiple submissions
-        console.log("handleAnswerSubmit: Guard condition met.", { themeId, problemsLength: problems.length, isSubmitting });
-        return;
-      }
-  
-      setIsSubmitting(true); // Start submitting
-      console.log("handleAnswerSubmit: Submission started.");
-  
-      try {
-        const allTriggerProblems = problems.filter(p => p.type === "trigger");
-        console.log("handleAnswerSubmit: All trigger problems found:", allTriggerProblems);
-  
-        const matchingTriggerProblem = allTriggerProblems.find(p => answerInput.trim() === p.solution);
-  
-        // Reset displayed problem media
-        setDisplayedProblemImageKey(null);
-        setDisplayedProblemText(null);
-  
-        if (matchingTriggerProblem) {
-          console.log("handleAnswerSubmit: Correct answer found for problem:", matchingTriggerProblem);
+  // 화면에 표시될 문제 이미지/텍스트 상태 (오프닝 또는 문제 반응)
+  const [displayedProblemImageKey, setDisplayedProblemImageKey] = useState<string | null>(null);
+  const [displayedProblemText, setDisplayedProblemText] = useState<string | null>(null);
+  const displayedProblemImageUrl = useMediaUrl(displayedProblemImageKey);
 
-          
-          setIsVideoPlaying(false);        // Stop theme video
-          setIsBgmPlaying(false);          // Stop theme BGM
-          setIsProblemVideoPlaying(false); // Stop problem video (explicitly)
-          setIsProblemBgmPlaying(false);   // Stop problem BGM (explicitly)
-          setAnswerInput('');              // Clear input
-          console.log("handleAnswerSubmit: All media playback states reset to false.");
-  
-  
-          // Set problem specific media keys
-          setActiveProblemVideoKey(matchingTriggerProblem.media?.videoKey || null);
-          setActiveProblemBgmKey(matchingTriggerProblem.media?.bgmKey || null);
-          setDisplayedProblemImageKey(matchingTriggerProblem.media?.imageKey || null); // Set problem image
-          setDisplayedProblemText(matchingTriggerProblem.media?.text || null);     // Set problem text
-          console.log("handleAnswerSubmit: Problem media keys and display media set.", { videoKey: matchingTriggerProblem.media?.videoKey, bgmKey: matchingTriggerProblem.media?.bgmKey, imageKey: matchingTriggerProblem.media?.imageKey, text: matchingTriggerProblem.media?.text });
-  
-  
-          // Conditional playback of problem media
-          if (matchingTriggerProblem.media?.videoKey) {
-            setIsProblemVideoPlaying(true);
-            console.log("handleAnswerSubmit: Playing problem video.");
-          } else if (matchingTriggerProblem.media?.bgmKey) {
-            setIsProblemBgmPlaying(true);
-            console.log("handleAnswerSubmit: Playing problem BGM.");
-          } else {
-            console.log("handleAnswerSubmit: Matching trigger problem has no media. No problem media will play.");
-          }
-        } else {
-          console.log("handleAnswerSubmit: Incorrect answer or no matching trigger problem found.");
-          setAnswerInput(''); // Clear input even on incorrect answer
-          setDialogMessage("오답입니다. 다시 시도해주세요.");
-          setIsDialogOpen(true);
+  // 일반 다이얼로그 상태 (주로 오답 메시지)
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState("");
+
+  // 다이얼로그 닫기 핸들러
+  const handleDialogClose = useCallback(() => {
+    setIsDialogOpen(false);
+    setDialogMessage("");
+  }, []);
+
+  // 문제 비디오 재생 종료 핸들러: 비디오 종료 후 BGM 재생 시작
+  const handleProblemVideoEnd = useCallback(() => {
+    setIsProblemVideoPlaying(false);
+    // 문제 BGM 키가 있고 URL이 준비되었으면 BGM 재생 시작
+    if (activeProblemBgmKey && problemBgmUrl) {
+      setIsProblemBgmPlaying(true);
+    }
+  }, [activeProblemBgmKey, problemBgmUrl]);
+
+  // 정답 제출 핸들러
+  const handleAnswerSubmit = useCallback(async () => {
+    if (!themeId || typeof themeId !== 'string' || !problems.length || isSubmitting) {
+      return; // 유효성 검사 및 중복 제출 방지
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const allTriggerProblems = problems.filter(p => p.type === "trigger");
+      const matchingTriggerProblem = allTriggerProblems.find(p => answerInput.trim() === p.solution);
+
+      // 문제 이미지/텍스트 초기화
+      setDisplayedProblemImageKey(null);
+      setDisplayedProblemText(null);
+
+      if (matchingTriggerProblem) {
+        // 정답인 경우: 모든 미디어 정지
+        setIsVideoPlaying(false);        // 테마 비디오 정지
+        setIsBgmPlaying(false);          // 테마 BGM 정지
+        setIsProblemVideoPlaying(false); // 문제 비디오 정지
+        setIsProblemBgmPlaying(false);   // 문제 BGM 정지
+        setAnswerInput('');              // 입력 초기화
+
+        // 문제별 미디어 키 설정
+        setActiveProblemVideoKey(matchingTriggerProblem.media?.videoKey || null);
+        setActiveProblemBgmKey(matchingTriggerProblem.media?.bgmKey || null);
+        setDisplayedProblemImageKey(matchingTriggerProblem.media?.imageKey || null);
+        setDisplayedProblemText(matchingTriggerProblem.media?.text || null);
+
+        // 조건부 미디어 재생 시작
+        if (matchingTriggerProblem.media?.videoKey) {
+          setIsProblemVideoPlaying(true); // 비디오 우선 재생
+        } else if (matchingTriggerProblem.media?.bgmKey) {
+          setIsProblemBgmPlaying(true); // 비디오 없으면 BGM 재생
         }
-      } finally {
-        setIsSubmitting(false); // End submitting
-        console.log("handleAnswerSubmit: Submission ended.");
+      } else {
+        // 오답인 경우
+        setAnswerInput(''); // 입력 초기화
+        setDialogMessage("오답입니다. 다시 시도해주세요.");
+        setIsDialogOpen(true);
       }
-    }, [answerInput, problems, themeId, isSubmitting]);
-  
-    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-      console.log("handleKeyDown: Key pressed -", e.key);
-      // Check if IME is composing (e.g., for Korean, Japanese, Chinese input)
-      if (e.nativeEvent.isComposing) {
-        // If composing, do nothing. Let the IME handle the Enter key.
-        return;
-      }
-      if (e.key === 'Enter') {
-        e.preventDefault(); // Prevent default Enter key behavior (e.g., form submission)
-        console.log("handleKeyDown: Enter key detected, calling handleAnswerSubmit.");
-        handleAnswerSubmit();
-      }
-    }, [handleAnswerSubmit]);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [answerInput, problems, themeId, isSubmitting]);
+
+  // Enter 키 입력 핸들러
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    // IME(한글/일본어/중국어 등) 입력 중이 아닐 때만 Enter 처리
+    if (e.nativeEvent.isComposing) {
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault(); // 기본 Enter 동작 방지
+      handleAnswerSubmit();
+    }
+  }, [handleAnswerSubmit]);
 
 
+  // 테마 및 문제 데이터 불러오기 (최초 1회 실행)
   useEffect(() => {
     async function fetchThemeData() {
       if (!themeId || typeof themeId !== 'string') {
@@ -159,9 +146,8 @@ export default function PlayerGamePage() {
         const fetchedTheme = await getTheme(themeId);
         if (fetchedTheme) {
           setTheme(fetchedTheme);
-          const fetchedProblems = await getProblemsByTheme(themeId); // Fetch problems
-          setProblems(fetchedProblems); // Set problems state
-          console.log("fetchThemeData: Fetched problems:", fetchedProblems); // Log fetched problems
+          const fetchedProblems = await getProblemsByTheme(themeId);
+          setProblems(fetchedProblems);
         } else {
           setError("테마를 찾을 수 없습니다.");
         }
@@ -173,58 +159,56 @@ export default function PlayerGamePage() {
       }
     }
     fetchThemeData();
-  }, [themeId]);
+  }, [themeId]); // themeId가 변경될 때만 재실행
 
+  // 초기 미디어 재생 및 오프닝 이미지/텍스트 표시
   useEffect(() => {
-    if (loading || error || !theme || hasMediaStarted) {
-      return;
-    }
+    if (!loading && !error && theme && !hasMediaStarted) {
+      // 오프닝 이미지/텍스트 설정 (항상 설정)
+      if (theme.openingImageKey) {
+        setDisplayedProblemImageKey(theme.openingImageKey);
+      }
+      if (theme.openingText) {
+        setDisplayedProblemText(theme.openingText);
+      }
 
-    let startedPrimaryMedia = false;
-
-    // 1. Prioritize video playback
-    if (theme.openingVideoKey && videoUrl) {
-      setIsVideoPlaying(true);
-      startedPrimaryMedia = true;
-      setHasMediaStarted(true); // Set only if video actually starts
-      console.log("Started opening video.");
-    } 
-    // 2. If no video started (either no key or URL not ready), try BGM
-    else if (theme.openingBgmKey && bgmUrl) {
-      setIsBgmPlaying(true);
-      startedPrimaryMedia = true;
-      setHasMediaStarted(true); // Set if BGM starts as fallback
-      console.log("Started opening BGM as fallback.");
-    }
-
-    // If there's no media (video or BGM) to play at all, mark as started
-    // to prevent endless re-evaluation
-    if (!theme.openingVideoKey && !theme.openingBgmKey) {
+      // 미디어 우선순위: 비디오 > BGM > 이미지/텍스트만
+      if (theme.openingVideoKey && videoUrl) {
+        setIsVideoPlaying(true);
         setHasMediaStarted(true);
-        console.log("No opening media specified for theme.");
+      } else if (theme.openingBgmKey && bgmUrl) {
+        setIsBgmPlaying(true);
+        setHasMediaStarted(true);
+      } else if (theme.openingImageKey || theme.openingText) {
+        setHasMediaStarted(true); // 미디어 없이 콘텐츠만 있어도 시작으로 간주
+      }
     }
+  }, [loading, error, theme, hasMediaStarted, videoUrl, bgmUrl]); // 관련 상태/데이터 변경 시 재실행
 
-    // Note: If videoKey exists but videoUrl is not ready, hasMediaStarted remains false.
-    // This allows the effect to re-run when videoUrl eventually resolves,
-    // giving the video another chance to play.
-
-  }, [loading, error, theme, hasMediaStarted, videoUrl, bgmUrl]);
-
-  const handleVideoEnd = () => {
+  // 테마 오프닝 비디오 재생 종료 핸들러
+  const handleVideoEnd = useCallback(() => {
     setIsVideoPlaying(false);
-    // Only re-enable theme BGM if no problem video is currently playing
+    // 문제 비디오가 재생 중이 아닐 때만 테마 BGM 재생 재개
     if (!isProblemVideoPlaying && theme?.openingBgmKey && bgmUrl) {
       setIsBgmPlaying(true);
     }
-  };
+    // 비디오 종료 후 오프닝 이미지/텍스트 다시 표시
+    if (theme?.openingImageKey) {
+      setDisplayedProblemImageKey(theme.openingImageKey);
+    }
+    if (theme?.openingText) {
+      setDisplayedProblemText(theme.openingText);
+    }
+  }, [bgmUrl, isProblemVideoPlaying, theme]);
 
+  // 비디오 재생 시 스크롤 잠금 (오버레이 비디오를 위한 처리)
   useEffect(() => {
-    // This effect should primarily control the body overflow based on *any* video playing
     if (isVideoPlaying || isProblemVideoPlaying) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
+    // 컴포넌트 언마운트 시 스타일 복구
     return () => {
       document.body.style.overflow = 'unset';
     };
@@ -233,27 +217,28 @@ export default function PlayerGamePage() {
 
   return (
     <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center justify-center">
-      {/* Problem Video Player as an overlay - Highest priority */}
+      
+      {/* 1. 문제 반응 비디오 플레이어 (최우선 오버레이) */}
       {isProblemVideoPlaying && problemVideoUrl && (
         <VideoPlayer src={problemVideoUrl} onEnded={handleProblemVideoEnd} />
       )}
 
-      {/* Theme Video Player as an overlay - Lower priority */}
+      {/* 2. 테마 오프닝 비디오 플레이어 (다음 오버레이) */}
       {!isProblemVideoPlaying && isVideoPlaying && videoUrl && (
         <VideoPlayer src={videoUrl} onEnded={handleVideoEnd} />
       )}
 
-      {/* Problem Audio Player for BGM - Highest priority */}
+      {/* 3. 문제 반응 BGM 플레이어 (최우선 오디오) */}
       {isProblemBgmPlaying && problemBgmUrl && (
         <AudioPlayer src={problemBgmUrl} />
       )}
 
-      {/* Theme Audio Player for BGM - Lower priority */}
+      {/* 4. 테마 오프닝 BGM 플레이어 (다음 오디오) */}
       {!isProblemBgmPlaying && isBgmPlaying && bgmUrl && (
         <AudioPlayer src={bgmUrl} />
       )}
 
-      {/* Media loading indicator - only show during initial media fetch */}
+      {/* 5. 미디어 로딩 인디케이터 (최초 로딩 시) */}
       {(loading || (theme && ((theme.openingVideoKey && !videoUrl) || (theme.openingBgmKey && !bgmUrl)))) && !hasMediaStarted && !isProblemVideoPlaying && !isProblemBgmPlaying && (
         <div className="flex items-center justify-center h-screen bg-[#1f1f1f] text-white">
           <svg className="animate-spin h-8 w-8 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -264,7 +249,7 @@ export default function PlayerGamePage() {
         </div>
       )}
       
-      {/* Error message */}
+      {/* 6. 에러 메시지 */}
       {error && !loading && (
         <div className="text-red-500 text-center mt-8">
           <p>{error}</p>
@@ -274,7 +259,7 @@ export default function PlayerGamePage() {
         </div>
       )}
 
-      {/* Game content - always show once theme data is loaded and no errors and no problem video playing */}
+      {/* 7. 메인 게임 콘텐츠 (비디오가 재생 중이 아닐 때만 표시) */}
       {theme && !loading && !error && !isVideoPlaying && !isProblemVideoPlaying && (
         <div className="w-full max-w-3xl p-8">
           {displayedProblemImageUrl && (
@@ -288,6 +273,8 @@ export default function PlayerGamePage() {
           {displayedProblemText && (
             <p className="text-md text-center mb-4 whitespace-pre-wrap">{displayedProblemText}</p>
           )}
+          
+          {/* 정답 입력 영역 */}
           <div className="relative group max-w-md mx-auto mt-4">
             <Input 
               type="text" 
@@ -297,27 +284,32 @@ export default function PlayerGamePage() {
               onChange={(e) => setAnswerInput(e.target.value)}
               onKeyDown={handleKeyDown}
             />
+            {/* 제출 버튼 */}
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-white cursor-pointer"
                  onClick={handleAnswerSubmit}
             >
-             
               <IoReturnDownBackSharp size={24} />
             </div>
           </div>
         </div>
       )}
 
-      {/* Generic Dialog for messages */}
+      {/* 8. 일반 다이얼로그 (오답 표시 등) */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px] bg-[#1f1f1f] text-white border-slate-700/70">
           <DialogHeader>
-            <DialogTitle>오답</DialogTitle>
+            <DialogTitle>알림</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <p className="text-left">{dialogMessage}</p>
           </div>
           <DialogFooter>
-            <Button onClick={handleDialogClose} type="button" variant="outline" className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
+            <Button 
+              onClick={handleDialogClose} 
+              type="button" 
+              variant="outline" 
+              className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]"
+            >
               확인
             </Button>
           </DialogFooter>

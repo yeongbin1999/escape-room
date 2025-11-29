@@ -360,7 +360,7 @@ export default function AdminProblemsPage() {
                           {/* 텍스트 */}
                           <div>
                             <p className="font-bold mb-2">📝 텍스트:</p>
-                            <div className="max-h-40 overflow-y-auto custom-scroll p-2 border border-slate-700 rounded-md">
+                            <div className="max-h-40 overflow-y-auto custom-scroll p-3 rounded-md whitespace-pre-wrap bg-[#171717] border border-[#2d2d2d]">
                               {problem.media?.text ? (
                                 <p className="text-sm whitespace-pre-wrap">
                                   {problem.media.text}
@@ -377,7 +377,7 @@ export default function AdminProblemsPage() {
                         {/* 3. 힌트 (셋째 줄) */}
                         <div>
                           <p className="font-bold mb-2">💡 힌트:</p>
-                          <div className="max-h-40 overflow-y-auto custom-scroll p-2 border border-slate-700 rounded-md">
+                          <div className="max-h-40  overflow-y-auto custom-scroll p-3 rounded-md whitespace-pre-wrap bg-[#171717] border border-[#2d2d2d]">
                             {problem.hints && problem.hints.length > 0 ? (
                               <ul className="list-inside space-y-1 text-sm">
                                 {problem.hints.map((hint, index) => (

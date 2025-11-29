@@ -273,6 +273,8 @@ export default function AdminThemesPage() {
                   <TableHead className="text-white text-center min-w-[300px]">제목</TableHead>
                   <TableHead className="text-white text-center">오프닝 영상</TableHead>
                   <TableHead className="text-white text-center">오프닝 음악</TableHead>
+                  <TableHead className="text-white text-center">오프닝 이미지</TableHead>
+                  <TableHead className="text-white text-center">오프닝 텍스트</TableHead>
                   <TableHead className="text-white text-center w-[100px]">문제 수</TableHead>
                   <TableHead className="text-white text-center">생성일</TableHead>
                   <TableHead className="text-white text-center">수정일</TableHead>
@@ -293,6 +295,12 @@ export default function AdminThemesPage() {
                       </TableCell>
                       <TableCell className="text-center">
                         {theme.openingBgmKey ? <FaCheck className="text-green-500 mx-auto" /> : <FaTimes className="text-red-500 mx-auto" />}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {theme.openingImageKey ? <FaCheck className="text-green-500 mx-auto" /> : <FaTimes className="text-red-500 mx-auto" />}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {theme.openingText ? <FaCheck className="text-green-500 mx-auto" /> : <FaTimes className="text-red-500 mx-auto" />}
                       </TableCell>
                       <TableCell className="text-center w-[100px]">
                         {problemCounts[theme.id] !== undefined ? problemCounts[theme.id] : '...'}
@@ -342,27 +350,54 @@ export default function AdminThemesPage() {
                     </TableRow>
                     {expandedThemeId === theme.id && (
                       <TableRow key={theme.id + "-details"} className="bg-[#2a2a2a] border-b border-slate-700/70">
-                        <TableCell colSpan={9} className="p-6">
+                        <TableCell colSpan={11} className="p-6">
                           <div className="flex flex-col space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                              <div>
-                                <p className="font-bold mb-2">메인 이미지:</p>
-                                <ThemeImage imageKey={theme.thumbnailKey} />
-                              </div>
-                              <div>
-                                <p className="font-bold mb-2">오프닝 영상:</p>
-                                <ThemeVideo videoKey={theme.openingVideoKey} />
-                              </div>
-                              <div>
-                                <p className="font-bold mb-2">오프닝 BGM:</p>
-                                <ThemeAudio audioKey={theme.openingBgmKey} />
-                              </div>
+                            {/* First Section: All Media (Thumbnail, Opening Image, Opening Video, Opening BGM) */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
+                                {/* Thumbnail (Main Image) */}
+                                <div>
+                                    <p className="font-bold mb-2">메인 이미지:</p>
+                                    <ThemeImage imageKey={theme.thumbnailKey} />
+                                </div>
+                                {/* Opening Image */}
+                                <div>
+                                    <p className="font-bold mb-2">오프닝 이미지:</p>
+                                    {theme.openingImageKey ? (
+                                      <ThemeImage imageKey={theme.openingImageKey} />
+                                    ) : (
+                                      <div className="w-64 h-36 bg-gray-800/50 rounded-md flex items-center justify-center border border-dashed border-gray-700">
+                                        <span className="text-sm text-gray-500">이미지 없음</span>
+                                      </div>
+                                    )}
+                                </div>
+                                {/* Opening Video */}
+                                <div>
+                                    <p className="font-bold mb-2">오프닝 영상:</p>
+                                    <ThemeVideo videoKey={theme.openingVideoKey} />
+                                </div>
+                                {/* Opening BGM */}
+                                <div>
+                                    <p className="font-bold mb-2">오프닝 BGM:</p>
+                                    <ThemeAudio audioKey={theme.openingBgmKey} />
+                                </div>
                             </div>
-                            <div>
-                              <p className="font-bold mb-2">설명:</p>
-                              <p className="text-sm p-3 rounded-md whitespace-pre-wrap">
-                                {theme.description || '없음'}
-                              </p>
+
+                            {/* Second Section: Textual Content (Description, Opening Text) */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                                {/* Description */}
+                                <div>
+                                    <p className="font-bold mb-2">설명:</p>
+                                    <p className="text-sm p-3 rounded-md whitespace-pre-wrap bg-[#171717] border border-[#2d2d2d]">
+                                        {theme.description || '없음'}
+                                    </p>
+                                </div>
+                                {/* Opening Text */}
+                                <div>
+                                    <p className="font-bold mb-2">오프닝 텍스트:</p>
+                                    <p className="text-sm p-3 rounded-md whitespace-pre-wrap bg-[#171717] border border-[#2d2d2d]">
+                                        {theme.openingText || '없음'}
+                                    </p>
+                                </div>
                             </div>
                           </div>
                         </TableCell>
