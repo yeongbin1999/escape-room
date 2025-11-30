@@ -111,6 +111,39 @@ export const updateTheme = async (
   themeData: Partial<Omit<Theme, "id" | "createdAt">>
 ): Promise<void> => {
   const docRef = doc(db, "themes", id);
+  const existingTheme = await getTheme(id);
+
+  // Compare media keys and delete old R2 objects if they are being replaced or removed
+  if (existingTheme) {
+    const oldKeys = [
+      existingTheme.thumbnailKey,
+      existingTheme.openingVideoKey,
+      existingTheme.openingBgmKey,
+      existingTheme.openingImageKey,
+    ];
+    const newKeys = [
+      themeData.thumbnailKey,
+      themeData.openingVideoKey,
+      themeData.openingBgmKey,
+      themeData.openingImageKey,
+    ];
+
+    const checkAndDelete = async (oldKey: string | null | undefined, newKey: string | null | undefined) => {
+      if (typeof oldKey === 'string' && oldKey.length > 0 && oldKey !== newKey) {
+        try {
+          await callR2DeleteApi(oldKey);
+        } catch (error) {
+          console.warn(`Failed to delete old R2 object ${oldKey} during theme update:`, error);
+        }
+      }
+    };
+
+    // Iterate through all possible media keys for a theme
+    for (let i = 0; i < oldKeys.length; i++) {
+      await checkAndDelete(oldKeys[i], newKeys[i]);
+    }
+  }
+  
   await updateDoc(docRef, {
     ...themeData,
     updatedAt: Timestamp.now(),
@@ -188,6 +221,29 @@ export const updateProblem = async (
   problemData: Partial<Omit<Problem, "id" | "themeId" | "createdAt">>
 ): Promise<void> => {
   const docRef = doc(db, "themes", themeId, "problems", problemId);
+  const existingProblem = await getProblem(themeId, problemId);
+
+  // Compare media keys and delete old R2 objects if they are being replaced or removed
+  if (existingProblem && existingProblem.media) {
+    const oldMedia = existingProblem.media;
+    const newMedia = problemData.media;
+
+    // Helper to check and delete old key
+    const checkAndDelete = async (oldKey: string | null | undefined, newKey: string | null | undefined) => {
+      if (typeof oldKey === 'string' && oldKey.length > 0 && oldKey !== newKey) {
+        try {
+          await callR2DeleteApi(oldKey);
+        } catch (error) {
+          console.warn(`Failed to delete old R2 object ${oldKey} during problem update:`, error);
+        }
+      }
+    };
+
+    await checkAndDelete(oldMedia.imageKey, newMedia?.imageKey);
+    await checkAndDelete(oldMedia.videoKey, newMedia?.videoKey);
+    await checkAndDelete(oldMedia.bgmKey, newMedia?.bgmKey);
+  }
+
   await updateDoc(docRef, {
     ...problemData,
     updatedAt: Timestamp.now(),
