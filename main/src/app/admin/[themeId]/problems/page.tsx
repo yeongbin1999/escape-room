@@ -379,6 +379,19 @@ export default function AdminProblemsPage() {
       await deleteProblem(themeId, problemToDelete.id);
       
       // 삭제 후 서버에서 데이터를 다시 불러와서 problems와 originalProblems를 모두 업데이트
+      const updatedProblemsAfterDeletion = await getProblemsByTheme(themeId);
+      const reSequencedProblems = updatedProblemsAfterDeletion
+        .sort((a, b) => a.number - b.number) // Ensure they are sorted by current number first
+        .map((problem, index) => ({
+          id: problem.id,
+          number: index + 1, // Re-assign sequential numbers
+        }));
+
+      // Update Firestore with the new sequence numbers
+      if (reSequencedProblems.length > 0) {
+        await updateProblemOrder(themeId, reSequencedProblems);
+      }
+      
       await fetchProblemsAndTheme(); 
       
     } catch (err) {
