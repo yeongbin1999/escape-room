@@ -345,7 +345,8 @@ export default function AdminProblemsPage() {
   };
 
   // --- 데이터 불러오기 ---
-  const fetchProblemsAndTheme = async () => {
+  // useCallback으로 감싸서 종속성 경고를 피하고 최적화
+  const fetchProblemsAndTheme = useCallback(async () => {
     if (!themeId) return;
     setLoading(true);
     setError(null);
@@ -365,18 +366,21 @@ export default function AdminProblemsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [themeId]); // themeId만 의존성으로 사용
 
   useEffect(() => {
     fetchProblemsAndTheme();
-  }, [themeId]);
+  }, [themeId, fetchProblemsAndTheme]); // fetchProblemsAndTheme를 의존성 배열에 포함
 
   // --- 삭제 로직 ---
   const handleConfirmDelete = useCallback(async () => {
     if (!problemToDelete) return;
     try {
       await deleteProblem(themeId, problemToDelete.id);
-      setProblems(prev => prev.filter(p => p.id !== problemToDelete.id));
+      
+      // 삭제 후 서버에서 데이터를 다시 불러와서 problems와 originalProblems를 모두 업데이트
+      await fetchProblemsAndTheme(); 
+      
     } catch (err) {
       console.error("Error deleting problem:", err);
       alert("문제 삭제에 실패했습니다.");
@@ -384,7 +388,8 @@ export default function AdminProblemsPage() {
       setShowDeleteConfirm(false);
       setProblemToDelete(null);
     }
-  }, [themeId, problemToDelete]);
+  // fetchProblemsAndTheme를 의존성 배열에 추가
+  }, [themeId, problemToDelete, fetchProblemsAndTheme]); 
 
   const handleDeleteClick = (problem: Problem) => {
     setProblemToDelete(problem);
@@ -709,6 +714,35 @@ export default function AdminProblemsPage() {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* 문제 삭제 확인 모달 */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent className="sm:max-w-[425px] bg-[#1f1f1f] text-white border-slate-700/70">
+          <AlertDialogHeader>
+            <AlertDialogTitle>문제 삭제 확인</AlertDialogTitle>
+            <AlertDialogDescription>
+              정말로 이 문제를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => { 
+                setShowDeleteConfirm(false); 
+                setProblemToDelete(null); 
+              }}
+              className="hover:bg-[#282828] hover:text-white border-gray-700"
+            >
+              취소
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete} 
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 순서 변경 결과 알림 */}
       <AlertDialog open={showOrderChangeNotification} onOpenChange={setShowOrderChangeNotification}>

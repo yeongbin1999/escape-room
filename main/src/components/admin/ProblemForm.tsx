@@ -137,12 +137,27 @@ export default function ProblemForm({ initialData, themeId, onSuccess, nextProbl
     setUploading(fieldName); // 업로드 상태 시작
     try {
       // 1. 서버에 Presigned URL 요청
-      const response = await fetch('/api/upload-url', { /* ... */ });
+      const response = await fetch('/api/upload-url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type,
+        }),
+      });
       if (!response.ok) throw new Error('Presigned URL 요청 실패');
       const { signedUrl, key } = await response.json();
 
       // 2. Presigned URL을 사용하여 파일 업로드 (R2/S3 등)
-      const uploadResponse = await fetch(signedUrl, { /* ... */ });
+      const uploadResponse = await fetch(signedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file,
+      });
       if (!uploadResponse.ok) throw new Error('R2 업로드 실패');
       return key; // 저장된 파일 키 반환
     } catch (error) {
