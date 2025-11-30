@@ -130,6 +130,7 @@ interface ProblemItemProps {
   setShowProblemModal: (show: boolean) => void;
   handleDeleteClick: (problem: Problem) => void;
   isOrderChangeMode: boolean; // 순서 변경 모드 여부 (드래그 활성화/비활성화)
+  originalNumber?: number; // The problem's original number before local reordering
 }
 
 const ProblemItem: React.FC<ProblemItemProps> = ({
@@ -140,6 +141,7 @@ const ProblemItem: React.FC<ProblemItemProps> = ({
   setShowProblemModal,
   handleDeleteClick,
   isOrderChangeMode,
+  originalNumber, // Destructure originalNumber
 }) => {
   // Dnd-kit의 useSortable 훅 사용
   const { 
@@ -164,6 +166,8 @@ const ProblemItem: React.FC<ProblemItemProps> = ({
 
   const isExpanded = expandedProblemId === problem.id;
 
+  const isNumberChanged = isOrderChangeMode && originalNumber !== undefined && problem.number !== originalNumber;
+
   return (
     <React.Fragment>
       {/* 문제 테이블 행 (Sortable item) */}
@@ -174,7 +178,14 @@ const ProblemItem: React.FC<ProblemItemProps> = ({
         {...listeners}  // 드래그 시작 및 이동 리스너
         className="touch-action-none" // 터치 디바이스 호환성 개선
       >
-        <TableCell className="text-center w-[70px]">{problem.number}</TableCell>
+        <TableCell className="text-center w-[70px]">
+          <span className={isNumberChanged ? "text-yellow-400" : ""}>
+            {problem.number}
+          </span>
+          {isNumberChanged && (
+            <span className="ml-1 text-gray-500 text-xs">({originalNumber})</span>
+          )}
+        </TableCell>
         <TableCell className="text-center min-w-[200px]">{problem.title}</TableCell>
         <TableCell className="text-center w-[150px]">{problem.solution}</TableCell>
         <TableCell className="text-center w-[150px]">{problem.code}</TableCell>
@@ -301,6 +312,7 @@ export default function AdminProblemsPage() {
   // --- 상태 관리 ---
   const [theme, setTheme] = useState<Theme | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
+  const [originalProblems, setOriginalProblems] = useState<Problem[]>([]); // New state to store original order
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -312,6 +324,11 @@ export default function AdminProblemsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [problemToDelete, setProblemToDelete] = useState<Problem | null>(null);
 
+  // 순서 변경 알림 관련
+  const [showOrderChangeNotification, setShowOrderChangeNotification] = useState(false);
+  const [orderChangeNotificationTitle, setOrderChangeNotificationTitle] = useState('');
+  const [orderChangeNotificationDescription, setOrderChangeNotificationDescription] = useState('');
+
   // 검색/정렬/확장 관련
   const [searchTerm, setSearchTerm] = useState('');
   const [sortCriteria, setSortCriteria] = useState('number-asc'); 
@@ -320,6 +337,7 @@ export default function AdminProblemsPage() {
   // Dnd-kit 드래그 앤 드롭 관련
   const [activeId, setActiveId] = useState<string | null>(null); 
   const [isOrderChangeMode, setIsOrderChangeMode] = useState(false); 
+  const [hasPendingChanges, setHasPendingChanges] = useState(false); 
 
 
   const toggleExpand = (problemId: string) => {
@@ -338,7 +356,9 @@ export default function AdminProblemsPage() {
       ]);
       setTheme(fetchedTheme);
       // 순서(number)에 따라 정렬된 상태로 저장
-      setProblems(fetchedProblems.sort((a, b) => a.number - b.number));
+      const sortedProblems = fetchedProblems.sort((a, b) => a.number - b.number);
+      setProblems(sortedProblems);
+      setOriginalProblems(sortedProblems); // Store original order
     } catch (err) {
       console.error("Error fetching data:", err);
       setError("데이터를 불러오는 데 실패했습니다.");
@@ -388,6 +408,24 @@ export default function AdminProblemsPage() {
       };
     }
   }, [showDeleteConfirm, handleConfirmDelete]);
+
+  // 순서 변경 알림 모달에서 Enter 키로 확인 실행 (UX 개선)
+  useEffect(() => {
+    if (showOrderChangeNotification) {
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Enter') {
+          event.preventDefault(); 
+          setShowOrderChangeNotification(false);
+        }
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [showOrderChangeNotification]);
   
   // --- Dnd-kit 센서 및 로직 ---
   // 마우스 및 터치 센서 설정 (순서 변경 모드에서만 활성화)
@@ -401,8 +439,8 @@ export default function AdminProblemsPage() {
     setActiveId(event.active.id as string);
   };
   
-  // 드래그 종료 시 순서 변경 및 Firestore 업데이트
-  const handleDragEnd = async (event: DragEndEvent) => {
+  // 드래그 종료 시 순서 변경 (로컬 상태만 업데이트)
+  const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null);
     const { active, over } = event;
 
@@ -417,21 +455,7 @@ export default function AdminProblemsPage() {
           ...problem,
           number: index + 1,
         }));
-
-        // Firestore 업데이트를 위한 페이로드 생성
-        const problemUpdates = newOrderWithUpdatedNumbers.map((problem) => ({
-          id: problem.id,
-          number: problem.number,
-        }));
-
-        // Firestore에 새 순서 반영 (비동기)
-        updateProblemOrder(themeId, problemUpdates).catch((err) => {
-          console.error("Error updating problem order in Firestore:", err);
-          alert("문제 순서 변경에 실패했습니다. 페이지를 새로고침해주세요.");
-          fetchProblemsAndTheme();
-        });
-
-        // 로컬 상태 업데이트
+        setHasPendingChanges(true); // 변경 사항이 있음을 표시
         return newOrderWithUpdatedNumbers;
       });
     }
@@ -511,15 +535,42 @@ export default function AdminProblemsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* 순서 변경 모드 ON/OFF 버튼 */}
           {isOrderChangeMode ? (
-            <Button
-              variant="outline"
-              className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]"
-              onClick={() => setIsOrderChangeMode(false)}
-            >
-              순서 변경 모드 종료
-            </Button>
+            <>
+              {/* 순서 변경 완료 버튼 (저장 및 모드 종료) */}
+              <Button
+                variant="outline"
+                className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]"
+                onClick={async () => {
+                  if (hasPendingChanges) {
+                    try {
+                      const problemUpdates = problems.map((problem) => ({
+                        id: problem.id,
+                        number: problem.number,
+                      }));
+                      await updateProblemOrder(themeId, problemUpdates);
+                      setHasPendingChanges(false);
+                      setOriginalProblems(problems); // Update original problems to current state
+                      
+                      setOrderChangeNotificationTitle("순서 변경 성공");
+                      setOrderChangeNotificationDescription("문제 순서가 성공적으로 업데이트되었습니다.");
+                      setShowOrderChangeNotification(true);
+
+                    } catch (err) {
+                      console.error("Error updating problem order in Firestore:", err);
+                      
+                      setOrderChangeNotificationTitle("순서 변경 실패");
+                      setOrderChangeNotificationDescription("문제 순서 변경에 실패했습니다. 페이지를 새로고침해주세요.");
+                      setShowOrderChangeNotification(true);
+                      fetchProblemsAndTheme(); // Re-fetch to revert to actual saved state
+                    }
+                  }
+                  setIsOrderChangeMode(false); // Always exit mode
+                }}
+              >
+                순서 변경 완료
+              </Button>
+            </>
           ) : (
             <>
               {/* 검색 입력 필드 */}
@@ -559,14 +610,13 @@ export default function AdminProblemsPage() {
                 className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]"
                 onClick={() => {
                    if (!isReorderEnabled) {
-                    alert("순서 변경은 검색/필터링이 없는 '순서 오름차순' 정렬 상태에서만 가능합니다. 설정을 초기화합니다.");
                     setSearchTerm('');
                     setSortCriteria('number-asc');
                   }
                   setIsOrderChangeMode(true);
                 }}
               >
-                순서 변경 모드
+                순서 변경
               </Button>
             </>
           )}
@@ -594,18 +644,24 @@ export default function AdminProblemsPage() {
                   items={displayedProblems.map(p => p.id)} 
                   strategy={verticalListSortingStrategy}
                 >
-                  {displayedProblems.map((problem) => (
-                    <ProblemItem
-                      key={problem.id}
-                      problem={problem}
-                      expandedProblemId={expandedProblemId}
-                      toggleExpand={toggleExpand}
-                      setEditingProblem={setEditingProblem}
-                      setShowProblemModal={setShowProblemModal}
-                      handleDeleteClick={handleDeleteClick}
-                      isOrderChangeMode={isOrderChangeMode} 
-                    />
-                  ))}
+                  {displayedProblems.map((problem) => {
+                    const originalProblem = originalProblems.find(op => op.id === problem.id);
+                    const originalNumber = originalProblem ? originalProblem.number : undefined;
+
+                    return (
+                      <ProblemItem
+                        key={problem.id}
+                        problem={problem}
+                        expandedProblemId={expandedProblemId}
+                        toggleExpand={toggleExpand}
+                        setEditingProblem={setEditingProblem}
+                        setShowProblemModal={setShowProblemModal}
+                        handleDeleteClick={handleDeleteClick}
+                        isOrderChangeMode={isOrderChangeMode} 
+                        originalNumber={originalNumber}
+                      />
+                    );
+                  })}
                 </SortableContext>
               )}
             </TableBody>
@@ -654,24 +710,18 @@ export default function AdminProblemsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 문제 삭제 확인 경고창 */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      {/* 순서 변경 결과 알림 */}
+      <AlertDialog open={showOrderChangeNotification} onOpenChange={setShowOrderChangeNotification}>
         <AlertDialogContent className="sm:max-w-[425px] bg-[#1f1f1f] text-white border-slate-700/70">
           <AlertDialogHeader>
-            <AlertDialogTitle>문제 삭제 확인</AlertDialogTitle>
+            <AlertDialogTitle>{orderChangeNotificationTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              정말로 이 문제를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+              {orderChangeNotificationDescription}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowDeleteConfirm(false)} className="hover:bg-[#282828] hover:text-white text-white border-gray-700">
-              취소
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleConfirmDelete} 
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              삭제
+            <AlertDialogAction onClick={() => setShowOrderChangeNotification(false)} className="hover:bg-[#282828] hover:text-white text-white border-1 border-gray-700">
+              확인
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
