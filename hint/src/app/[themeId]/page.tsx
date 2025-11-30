@@ -190,24 +190,23 @@ export default function HintProblemPage() {
 
   // 3. 정상 렌더링
   return (
-    <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center p-4">
+    <div className="h-screen bg-[#1f1f1f] text-white flex flex-col items-center p-4">
       {/* 뒤로 가기 링크 */}
-      <Link href="/" className="absolute top-4 left-4 text-gray-400 hover:text-white">
+      <Link href="/" className="absolute top-4 left-4 text-gray-400 hover:text-white flex-shrink-0">
         <IoIosArrowBack className="h-6 w-6" /> 
       </Link>
 
-      <h1 className="text-3xl font-bold mt-12 mb-8">
+      <h1 className="text-2xl sm:text-3xl font-bold mt-4 mb-4 text-center flex-shrink-0">
         {theme?.title || "테마 이름"}
       </h1>
 
       {/* 메인 컨테이너: flex-grow로 화면을 채우고, 힌트 영역이 유동적으로 크기를 조절하도록 함 */}
-      <div className="w-full max-w-md p-4 mb-4 bg-[#282828] rounded-lg shadow-lg flex-grow flex flex-col">
+      <div className="w-full max-w-md mx-auto p-4 bg-[#282828] rounded-lg shadow-lg flex-grow flex flex-col">
         
         {/* 문제 코드 입력창 */}
         <div className="relative group mb-4 flex-shrink-0">
           <Input
             type="text"
-            placeholder="해당 문제의 코드를 입력하면 힌트를 얻을 수 있습니다."
             className="w-full text-center text-xl h-12 pr-12 bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0"
             value={answerInput}
             onChange={(e) => setAnswerInput(e.target.value)}
@@ -260,7 +259,7 @@ export default function HintProblemPage() {
         ) : (
           /* 힌트가 없을 때 안내 메시지 (남은 공간을 모두 채움) */
           <div className="mt-2 p-4 bg-[#1f1f1f] border border-[#4a4a4a] rounded-md flex-grow flex items-center justify-center">
-              <p className="text-gray-400">문제 코드를 입력해 힌트를 받아보세요.</p>
+              <p className="text-gray-400">문제 코드를 입력하고 힌트를 받아보세요.</p>
           </div>
         )}
       </div>
