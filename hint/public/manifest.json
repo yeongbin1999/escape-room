@@ -1,7 +1,7 @@
 {
-    "name": "Escape Room",
+    "name": "Escape Room hint",
     "short_name": "EscapeRoom",
-    "description": "방탈출 웹앱",
+    "description": "방탈출 힌트용 웹앱",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#000000",

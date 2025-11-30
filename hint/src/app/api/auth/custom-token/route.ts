@@ -8,14 +8,22 @@ export async function POST(request: Request) {
 
     if (!SERVER_PLAYER_EMAIL) {
       console.error('SERVER_PLAYER_EMAIL environment variable is not set.');
-      return NextResponse.json({ message: 'Server configuration error' }, { status: 500 });
+      return NextResponse.json({ message: 'Server configuration error: SERVER_PLAYER_EMAIL missing' }, { status: 500 });
     }
 
-    // Use the player's email as the UID for Firebase Authentication
-    const uid = SERVER_PLAYER_EMAIL;
+    let uidToUse: string;
 
-    // Generate a custom token
-    const customToken = await firebaseAdmin.auth().createCustomToken(uid);
+    try {
+      // Get the user by email, assuming it always exists
+      const userRecord = await firebaseAdmin.auth().getUserByEmail(SERVER_PLAYER_EMAIL);
+      uidToUse = userRecord.uid;
+    } catch (error: any) {
+      console.error('Error fetching Firebase user (user is assumed to exist):', error);
+      return NextResponse.json({ message: 'Failed to retrieve predefined Firebase user', error: error.message }, { status: 500 });
+    }
+
+    // Use the determined UID to generate a custom token
+    const customToken = await firebaseAdmin.auth().createCustomToken(uidToUse);
 
     return NextResponse.json({ customToken });
   } catch (error: any) {

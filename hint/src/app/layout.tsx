@@ -1,4 +1,5 @@
 import "@/styles/globals.css";
+import { AuthProvider } from "@/lib/authContext";
 
 export const metadata = {
   title: "ESCAPE ROOM hint",
@@ -11,11 +12,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="theme-color" content="#000000" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body className="min-h-screen">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
