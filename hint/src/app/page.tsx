@@ -32,6 +32,19 @@ export default function HintThemeListPage() {
   // 시작 버튼에 포커스를 주기 위한 Ref
   const startButtonRef = useRef<HTMLButtonElement>(null);
 
+  // 로컬 스토리지 클리어 로직
+  useEffect(() => {
+    // 페이지가 로드될 때 로컬 스토리지에서 이전 테마 데이터 정리
+    if (typeof window !== "undefined") {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("hint_problems_")) {
+          localStorage.removeItem(key);
+        }
+      });
+      console.log("Cleared all cached theme problems from localStorage.");
+    }
+  }, []);
+
   // Fetch themes only when auth is ready and there's an authenticated user
   useEffect(() => {
     async function fetchThemesData() {
