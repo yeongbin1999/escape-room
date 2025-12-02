@@ -300,22 +300,24 @@ export default function PlayerGamePage() {
           )}
           
           {/* 정답 입력 영역 */}
-          <div className="relative group max-w-md mx-auto mt-4">
-            <Input 
-              type="text" 
-              placeholder="" 
-              className="w-full text-center text-3xl h-16 pr-12"
-              value={answerInput}
-              onChange={(e) => setAnswerInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-            {/* 제출 버튼 */}
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-white cursor-pointer"
-                 onClick={handleAnswerSubmit}
-            >
-              <IoReturnDownBackSharp size={24} />
+          {problems.length > 0 && (
+            <div className="relative group max-w-md mx-auto mt-4">
+              <Input 
+                type="text" 
+                placeholder="" 
+                className="w-full text-center text-3xl h-16 pr-12"
+                value={answerInput}
+                onChange={(e) => setAnswerInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+              {/* 제출 버튼 */}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-white cursor-pointer"
+                   onClick={handleAnswerSubmit}
+              >
+                <IoReturnDownBackSharp size={24} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 

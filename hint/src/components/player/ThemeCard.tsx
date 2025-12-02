@@ -39,7 +39,7 @@ export default function ThemeCard({ theme, onSelect }: ThemeCardProps) {
     >
       
       {/* 1. 이미지: 카드 상단에 여백 없이 배치 */}
-      <div className="relative w-full h-48 sm:h-56 md:h-64"> 
+      <div className="relative w-full h-64 sm:h-72 md:h-80"> 
         <Image 
           src={thumbnailUrl || defaultImageUrl} // 썸네일 URL이 없으면 기본 이미지 사용.
           alt={theme.title} // 이미지의 대체 텍스트로 테마 제목 사용.

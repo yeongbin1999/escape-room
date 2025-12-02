@@ -140,7 +140,7 @@ export default function HintThemeListPage() {
   return (
     <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center px-6 py-4">
       <h1 className="text-3xl font-bold mb-8 mt-12">ESCAPE ROOM</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full px-5">
         {/* 불러온 테마 목록을 ThemeCard 컴포넌트로 렌더링 */}
         {themes.map((theme) => (
           <ThemeCard key={theme.id} theme={theme} onSelect={handleSelectHintTheme} />
