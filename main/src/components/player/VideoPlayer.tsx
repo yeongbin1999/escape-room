@@ -18,6 +18,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ src, onEnded }) => {
   return (
     <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
       <video
+        key={src}
         ref={videoRef}
         src={src}
         onEnded={onEnded}
