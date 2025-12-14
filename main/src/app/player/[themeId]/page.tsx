@@ -30,8 +30,8 @@ export default function PlayerGamePage() {
   const [error, setError] = useState<string | null>(null);
 
   // 테마의 오프닝 미디어 URL (커스텀 훅 사용)
-  const videoUrl = useMediaUrl(theme?.openingVideoKey);
-  const bgmUrl = useMediaUrl(theme?.openingBgmKey);
+  const { url: videoUrl, loading: videoLoading } = useMediaUrl(theme?.openingVideoKey);
+  const { url: bgmUrl, loading: bgmLoading } = useMediaUrl(theme?.openingBgmKey);
 
   // 사용자 입력 및 현재 활성화된 문제 미디어 키 상태
   const [answerInput, setAnswerInput] = useState('');
@@ -39,8 +39,8 @@ export default function PlayerGamePage() {
   const [activeProblemBgmKey, setActiveProblemBgmKey] = useState<string | null>(null);
 
   // 활성화된 문제 미디어 URL
-  const problemVideoUrl = useMediaUrl(activeProblemVideoKey); 
-  const problemBgmUrl = useMediaUrl(activeProblemBgmKey);   
+  const { url: problemVideoUrl, loading: problemVideoLoading } = useMediaUrl(activeProblemVideoKey); 
+  const { url: problemBgmUrl, loading: problemBgmLoading } = useMediaUrl(activeProblemBgmKey);
 
   // 미디어 재생 상태
   const [isVideoPlaying, setIsVideoPlaying] = useState(false); // 테마 오프닝 비디오
@@ -53,7 +53,7 @@ export default function PlayerGamePage() {
   // 화면에 표시될 문제 이미지/텍스트 상태 (오프닝 또는 문제 반응)
   const [displayedProblemImageKey, setDisplayedProblemImageKey] = useState<string | null>(null);
   const [displayedProblemText, setDisplayedProblemText] = useState<string | null>(null);
-  const displayedProblemImageUrl = useMediaUrl(displayedProblemImageKey);
+  const { url: displayedProblemImageUrl, loading: imageLoading } = useMediaUrl(displayedProblemImageKey);
 
   // 일반 다이얼로그 상태 (주로 오답 메시지)
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -99,18 +99,11 @@ export default function PlayerGamePage() {
         setIsProblemBgmPlaying(false);
         setAnswerInput('');
 
-        // 문제별 미디어 키 설정
+        // 문제별 미디어 키 설정 (이후 useEffect가 재생을 처리)
         setActiveProblemVideoKey(currentProblem.media?.videoKey || null);
         setActiveProblemBgmKey(currentProblem.media?.bgmKey || null);
         setDisplayedProblemImageKey(currentProblem.media?.imageKey || null);
         setDisplayedProblemText(currentProblem.media?.text || null);
-
-        // 조건부 미디어 재생 시작
-        if (currentProblem.media?.videoKey) {
-          setIsProblemVideoPlaying(true); // 비디오 우선 재생
-        } else if (currentProblem.media?.bgmKey) {
-          setIsProblemBgmPlaying(true); // 비디오 없으면 BGM 재생
-        }
 
         // 푼 문제를 목록에서 제거
         setProblems(prevProblems => prevProblems.slice(1));
@@ -169,9 +162,32 @@ export default function PlayerGamePage() {
     fetchThemeData();
   }, [themeId]); // themeId가 변경될 때만 재실행
 
+  // 문제 미디어 재생 로직 (URL 로딩 완료 후)
+  useEffect(() => {
+    if (problemVideoLoading || problemBgmLoading) {
+      return; // 미디어 URL 로딩 중에는 아무것도 하지 않음
+    }
+
+    // 비디오 키와 URL이 모두 준비되면 비디오 재생
+    if (activeProblemVideoKey && problemVideoUrl) {
+      setIsProblemVideoPlaying(true);
+    } 
+    // 비디오가 없을 때, BGM 키와 URL이 준비되면 BGM 재생
+    else if (activeProblemBgmKey && problemBgmUrl) {
+      setIsProblemBgmPlaying(true);
+    }
+  }, [
+    activeProblemVideoKey, 
+    problemVideoUrl, 
+    problemVideoLoading, 
+    activeProblemBgmKey, 
+    problemBgmUrl, 
+    problemBgmLoading
+  ]);
+
   // 초기 미디어 재생 및 오프닝 이미지/텍스트 표시
   useEffect(() => {
-    if (loading || error || !theme || hasMediaStarted) {
+    if (loading || error || !theme || hasMediaStarted || videoLoading || bgmLoading) {
       return;
     }
 
@@ -185,22 +201,19 @@ export default function PlayerGamePage() {
 
     // 미디어 재생 로직
     if (theme.openingVideoKey) {
-      // 비디오 키가 있으면 URL이 준비될 때까지 기다렸다가 재생
       if (videoUrl) {
         setIsVideoPlaying(true);
         setHasMediaStarted(true);
       }
     } else if (theme.openingBgmKey) {
-      // 비디오 키가 없고 BGM 키가 있으면 BGM URL을 기다렸다가 재생
       if (bgmUrl) {
         setIsBgmPlaying(true);
         setHasMediaStarted(true);
       }
     } else {
-      // 미디어가 없는 경우
       setHasMediaStarted(true);
     }
-  }, [loading, error, theme, hasMediaStarted, videoUrl, bgmUrl]);
+  }, [loading, error, theme, hasMediaStarted, videoUrl, bgmUrl, videoLoading, bgmLoading]);
 
   // 테마 오프닝 비디오 재생 종료 핸들러
   const handleVideoEnd = useCallback(() => {
@@ -279,7 +292,7 @@ export default function PlayerGamePage() {
       )}
 
       {/* 5. 미디어 로딩 인디케이터 (최초 로딩 시) */}
-      {(loading || (theme && ((theme.openingVideoKey && !videoUrl) || (theme.openingBgmKey && !bgmUrl)))) && !hasMediaStarted && !isProblemVideoPlaying && !isProblemBgmPlaying && (
+      {(loading || videoLoading || bgmLoading) && !hasMediaStarted && !isProblemVideoPlaying && !isProblemBgmPlaying && (
         <div className="flex items-center justify-center h-screen bg-[#1f1f1f] text-white">
           <svg className="animate-spin h-8 w-8 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

@@ -72,7 +72,11 @@ import { CSS } from "@dnd-kit/utilities";
  */
 function ProblemImage({ imageKey }: { imageKey: string | null | undefined }) {
   // 커스텀 훅을 사용하여 미디어 키로부터 접근 가능한 URL을 가져옵니다.
-  const imageUrl = useMediaUrl(imageKey);
+  const { url: imageUrl, loading } = useMediaUrl(imageKey);
+
+  if (loading) {
+    return <Skeleton className="w-64 h-36" />;
+  }
 
   return (
     <div className="w-64 h-36 bg-gray-800 rounded-md flex items-center justify-center">
@@ -90,7 +94,11 @@ function ProblemImage({ imageKey }: { imageKey: string | null | undefined }) {
  * @param videoKey 미디어 서버에 저장된 비디오 키
  */
 function ProblemVideo({ videoKey }: { videoKey: string | null | undefined }) {
-  const videoUrl = useMediaUrl(videoKey);
+  const { url: videoUrl, loading } = useMediaUrl(videoKey);
+
+  if (loading) {
+    return <Skeleton className="w-64 h-36" />;
+  }
 
   return (
     <div className="w-64 h-36 bg-gray-800 rounded-md flex items-center justify-center">
@@ -108,7 +116,11 @@ function ProblemVideo({ videoKey }: { videoKey: string | null | undefined }) {
  * @param audioKey 미디어 서버에 저장된 오디오 키
  */
 function ProblemAudio({ audioKey }: { audioKey: string | null | undefined }) {
-  const audioUrl = useMediaUrl(audioKey);
+  const { url: audioUrl, loading } = useMediaUrl(audioKey);
+
+  if (loading) {
+    return <Skeleton className="w-full h-10" />;
+  }
 
   return (
     <div className="w-full max-w-sm">

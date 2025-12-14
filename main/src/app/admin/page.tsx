@@ -51,8 +51,12 @@ import Image from 'next/image';
 // --- Media Display Components ---
 
 function ThemeImage({ imageKey }: { imageKey: string | null | undefined }) {
-  const mediaUrl = useMediaUrl(imageKey);
+  const { url: mediaUrl, loading } = useMediaUrl(imageKey);
   const imageUrl = mediaUrl || '/image.png';
+
+  if (loading) {
+    return <Skeleton className="w-64 h-36" />;
+  }
 
   return (
     <div className="relative w-64 h-36 bg-gray-800 rounded-md overflow-hidden">
@@ -69,7 +73,11 @@ function ThemeImage({ imageKey }: { imageKey: string | null | undefined }) {
 }
 
 function ThemeVideo({ videoKey }: { videoKey: string | null | undefined }) {
-  const videoUrl = useMediaUrl(videoKey);
+  const { url: videoUrl, loading } = useMediaUrl(videoKey);
+
+  if (loading) {
+    return <Skeleton className="w-64 h-36" />;
+  }
 
   return (
     <div className="w-64 h-36 bg-gray-800 rounded-md flex items-center justify-center">
@@ -83,7 +91,11 @@ function ThemeVideo({ videoKey }: { videoKey: string | null | undefined }) {
 }
 
 function ThemeAudio({ audioKey }: { audioKey: string | null | undefined }) {
-  const audioUrl = useMediaUrl(audioKey);
+  const { url: audioUrl, loading } = useMediaUrl(audioKey);
+
+  if (loading) {
+    return <Skeleton className="w-full h-10" />;
+  }
 
   return (
     <div className="w-full max-w-sm">

@@ -23,7 +23,7 @@ interface ThemeCardProps {
  */
 export default function ThemeCard({ theme, onSelect }: ThemeCardProps) {
   // 테마의 썸네일 키를 사용하여 미디어 URL을 가져옵니다.
-  const thumbnailUrl = useMediaUrl(theme.thumbnailKey);
+  const { url: thumbnailUrl } = useMediaUrl(theme.thumbnailKey);
   // 썸네일이 없을 경우 사용할 기본 이미지 URL.
   const defaultImageUrl = '/image.png'; 
 
