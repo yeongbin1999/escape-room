@@ -59,6 +59,7 @@ export default function PlayerGamePage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [activeProblemMedia, setActiveProblemMedia] = useState<Problem['media'] | null>(null);
 
   // 다이얼로그 닫기 핸들러
   const handleDialogClose = useCallback(() => {
@@ -69,11 +70,19 @@ export default function PlayerGamePage() {
   // 문제 비디오 재생 종료 핸들러: 비디오 종료 후 BGM 재생 시작
   const handleProblemVideoEnd = useCallback(() => {
     setIsProblemVideoPlaying(false);
+
+    // 비디오 종료 후, 해당 문제의 이미지/텍스트가 있다면 표시
+    setDisplayedProblemImageKey(activeProblemMedia?.imageKey || null);
+    setDisplayedProblemText(activeProblemMedia?.text || null);
+
     // 문제 BGM 키가 있고 URL이 준비되었으면 BGM 재생 시작
     if (activeProblemBgmKey && problemBgmUrl) {
       setIsProblemBgmPlaying(true);
     }
-  }, [activeProblemBgmKey, problemBgmUrl]);
+    
+    // 처리 완료 후 액티브 미디어 상태 초기화
+    setActiveProblemMedia(null);
+  }, [activeProblemMedia, activeProblemBgmKey, problemBgmUrl]);
 
   // 정답 제출 핸들러
   const handleAnswerSubmit = useCallback(async () => {
@@ -84,14 +93,10 @@ export default function PlayerGamePage() {
     setIsSubmitting(true);
 
     try {
-      const currentProblem = problems[0]; // 풀어야 할 문제는 항상 정렬된 목록의 첫 번째
-      const isCorrect = answerInput.trim() === currentProblem.solution;
+      const solvedProblem = problems[0]; // 풀어야 할 문제는 항상 정렬된 목록의 첫 번째
+      const isCorrect = answerInput.trim() === solvedProblem.solution;
 
       if (isCorrect) {
-        // 문제 이미지/텍스트 초기화 (정답일 때만)
-        setDisplayedProblemImageKey(null);
-        setDisplayedProblemText(null);
-
         // 정답인 경우: 모든 미디어 정지
         setIsVideoPlaying(false);
         setIsBgmPlaying(false);
@@ -99,12 +104,22 @@ export default function PlayerGamePage() {
         setIsProblemBgmPlaying(false);
         setAnswerInput('');
 
-        // 문제별 미디어 키 설정 (이후 useEffect가 재생을 처리)
-        setActiveProblemVideoKey(currentProblem.media?.videoKey || null);
-        setActiveProblemBgmKey(currentProblem.media?.bgmKey || null);
-        setDisplayedProblemImageKey(currentProblem.media?.imageKey || null);
-        setDisplayedProblemText(currentProblem.media?.text || null);
-
+        // 비디오가 있는 경우: 이전 화면 유지, 비디오 재생 준비
+        if (solvedProblem.media?.videoKey) {
+          // 중요: displayedProblem... 상태를 여기서 바꾸지 않아 화면 유지
+          setActiveProblemMedia(solvedProblem.media);
+          setActiveProblemVideoKey(solvedProblem.media.videoKey);
+          setActiveProblemBgmKey(solvedProblem.media.bgmKey || null);
+        } else {
+          // 비디오가 없는 경우: 즉시 다음 콘텐츠 표시
+          setDisplayedProblemImageKey(solvedProblem.media?.imageKey || null);
+          setDisplayedProblemText(solvedProblem.media?.text || null);
+          setActiveProblemMedia(null);
+          setActiveProblemVideoKey(null);
+          // 비디오가 없어도 BGM은 있을 수 있으므로 설정
+          setActiveProblemBgmKey(solvedProblem.media?.bgmKey || null);
+        }
+        
         // 푼 문제를 목록에서 제거
         setProblems(prevProblems => prevProblems.slice(1));
       } else {
