@@ -231,6 +231,22 @@ export default function PlayerGamePage() {
     };
   }, [isVideoPlaying, isProblemVideoPlaying]);
 
+  // 키보드 단축키로 인한 새로고침 방지
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // F5, Ctrl+R (Windows/Linux), Cmd+R (Mac)
+      if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')) {
+        e.preventDefault();
+        console.log('새로고침이 차단되었습니다.'); // 개발자 도구에만 표시
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center justify-center">
