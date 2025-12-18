@@ -249,6 +249,50 @@ const ProblemItem: React.FC<ProblemItemProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* 4. 원격 트리거 목록 (문제 타입이 'trigger'일 경우) */}
+              {problem.triggers && problem.triggers.length > 0 && (
+                <div className="flex flex-col space-y-4 mt-6">
+                  <p className="font-bold text-lg">🚀 원격 트리거 목록:</p>
+                  {problem.triggers.map((trigger, index) => (
+                    <div key={index} className="p-4 rounded-md bg-[#171717] border border-[#2d2d2d] flex flex-col space-y-4">
+                      <p className="font-bold text-base">대상 장치 - {trigger.targetDevice}</p>
+                      
+                      {/* 트리거 미디어 (이미지, 영상, BGM) */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                        <div>
+                          <p className="font-bold mb-2">🖼️ 이미지:</p>
+                          <ProblemImage imageKey={trigger.mediaState?.imageKey} />
+                        </div>
+                        <div>
+                          <p className="font-bold mb-2">🎥 영상:</p>
+                          <ProblemVideo videoKey={trigger.mediaState?.videoKey} />
+                        </div>
+                        <div>
+                          <p className="font-bold mb-2">🎵 BGM:</p>
+                          <ProblemAudio audioKey={trigger.mediaState?.bgmKey} />
+                        </div>
+                      </div>
+
+                      {/* 트리거 텍스트 */}
+                      <div className="grid grid-cols-1 gap-6 text-sm">
+                        <div>
+                          <p className="font-bold mb-2">📝 텍스트:</p>
+                          <div className="max-h-40 overflow-y-auto custom-scroll p-3 rounded-md whitespace-pre-wrap bg-[#171717] border border-[#2d2d2d]">
+                            {trigger.mediaState?.text ? (
+                              <p className="text-sm whitespace-pre-wrap">
+                                {trigger.mediaState.text}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">텍스트 내용 없음</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </TableCell>
         </TableRow>

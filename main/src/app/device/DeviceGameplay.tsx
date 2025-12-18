@@ -215,8 +215,8 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
   if (gameState.status === 'pending') {
     return (
       <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center justify-center p-8 text-center">
-        <p className="text-2xl font-bold mb-4">시작 대기 중</p>
-        <p className="text-lg">테마: {theme.title}</p>
+        <p className="text-2xl font-bold mb-4">테마 '{theme.title}' 시작 대기 중</p>
+        <p className="text-lg">게임 코드: {gameState.gameCode}</p>
         <p className="text-lg">장치: {myDeviceId}</p>
       </div>
     );

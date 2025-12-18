@@ -112,7 +112,7 @@ const GameSessionItem: React.FC<GameSessionItemProps> = ({
     return allThemeDevices.every(deviceId => {
       const device = session.connectedDevices?.[deviceId];
       const lastSeenDate = device?.lastSeen?.toDate();
-      const isStale = lastSeenDate ? (currentTime.getTime() - lastSeenDate.getTime()) > 10000 : true;
+      const isStale = lastSeenDate ? (currentTime.getTime() - lastSeenDate.getTime()) > 12000 : true;
       return device && (device.status === 'connected' || device.status === 'ready') && !isStale;
     });
   }, [allThemeDevices, session.connectedDevices, currentTime]);
@@ -156,7 +156,7 @@ const GameSessionItem: React.FC<GameSessionItemProps> = ({
             size="sm" 
             className="text-red-500 hover:bg-[#282828] p-2"
             onClick={() => setShowDeleteConfirmDialog(true)}
-            disabled={session.status !== 'ended'} // 종료된 세션에 대해서만 활성화
+            // disabled={session.status !== 'ended'} // 종료된 세션에 대해서만 활성화
           >
             <FaTrash size={16} />
           </Button>
@@ -189,7 +189,7 @@ const GameSessionItem: React.FC<GameSessionItemProps> = ({
                 className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]"
                 onClick={() => toggleExpand(session.id)}
             >
-                {isExpanded ? '닫기' : '상세 보기'}
+                {isExpanded ? '닫기' : '상세'}
             </Button>
         </TableCell>
       </TableRow>
@@ -198,7 +198,7 @@ const GameSessionItem: React.FC<GameSessionItemProps> = ({
         <TableRow className="bg-[#2a2a2a] border-b border-slate-700/70">
           <TableCell colSpan={8} className="p-6"> {/* colSpan 7 -> 8로 변경 */}
             <div className="flex flex-col space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="font-bold mb-2">세션 ID:</p>
                   <Input value={session.id} readOnly className="bg-[#171717] border-[#2d2d2d] text-white" />
@@ -207,7 +207,7 @@ const GameSessionItem: React.FC<GameSessionItemProps> = ({
                   <p className="font-bold mb-2">게임 코드:</p>
                   <Input value={session.gameCode} readOnly className="bg-[#171717] border-[#2d2d2d] text-white" />
                 </div>
-              </div>
+              </div> */}
 
               <div className="w-full p-4 border rounded-md border-[#333] bg-[#1a1a1a] flex flex-col">
                 <p className="font-bold mb-4 text-sm border-b border-[#333] pb-2">장치 관리 (연결 상태 & QR 코드)</p>
@@ -285,9 +285,9 @@ const GameSessionItem: React.FC<GameSessionItemProps> = ({
                     <FaPlay className="mr-2" /> 시작
                   </Button>
                 )}
-                <Button onClick={() => onEndSession(session.id)}>
+                {/* <Button onClick={() => onEndSession(session.id)}>
                   <FaStop className="mr-2" /> 종료
-                </Button>
+                </Button> */}
                 <Button onClick={() => onResetSessionRequest(session.id)}>
                   <FaRedo className="mr-2" /> 리셋
                 </Button>
