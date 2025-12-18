@@ -121,7 +121,7 @@ const GameSessionItem: React.FC<GameSessionItemProps> = ({
     switch (status) {
       case 'running': return { text: '진행 중', color: 'text-green-500' };
       case 'paused': return { text: '일시 정지', color: 'text-yellow-500' };
-      case 'ended': return { text: '종료됨', color: 'text-red-500' };
+      case 'ended': return { text: '클리어', color: 'text-red-500' };
       default: return { text: '대기 중', color: 'text-gray-400' };
     }
   };
@@ -173,14 +173,14 @@ const GameSessionItem: React.FC<GameSessionItemProps> = ({
             }
         </TableCell>
         <TableCell className="text-center w-[150px]">
+            {Object.keys(session.solvedProblems || {}).length} / {triggerProblemCount}
+        </TableCell>
+        <TableCell className="text-center w-[150px]">
             {Object.values(session.connectedDevices || {}).filter(d => {
                 const lastSeenDate = d?.lastSeen?.toDate();
                 const isStale = lastSeenDate ? (currentTime.getTime() - lastSeenDate.getTime()) > 10000 : true;
                 return (d.status === 'connected' || d.status === 'ready') && !isStale;
             }).length} / {allThemeDevices.length}
-        </TableCell>
-        <TableCell className="text-center w-[150px]">
-            {Object.keys(session.solvedProblems || {}).length} / {triggerProblemCount}
         </TableCell>
         <TableCell className="text-right w-[120px] space-x-2">
             <Button
@@ -269,7 +269,7 @@ const GameSessionItem: React.FC<GameSessionItemProps> = ({
                 )}
                 {session.status === 'running' && (
                   <Button onClick={() => onUpdateSession(session.id, { status: 'paused' })} disabled={session.status !== 'running'}>
-                    <FaPause className="mr-2" /> 정지
+                    <FaPause className="mr-2" /> 중단
                   </Button>
                 )}
                 {session.status === 'paused' && (
@@ -573,9 +573,9 @@ export default function AdminGameSessionsPage() {
               <TableHead className="text-white text-center w-[120px]">게임 코드</TableHead>
               <TableHead className="text-white text-center min-w-[300px]">테마</TableHead>
               <TableHead className="text-white text-center w-[150px]">상태</TableHead>
-              <TableHead className="text-white text-center w-[150px]">풀이중인 문제</TableHead>
-              <TableHead className="text-white text-center w-[150px]">장치 연결</TableHead>
+              <TableHead className="text-white text-center w-[150px]">진행중인 문제</TableHead>
               <TableHead className="text-white text-center w-[150px]">진행도</TableHead>
+              <TableHead className="text-white text-center w-[150px]">장치 연결</TableHead>
               <TableHead className="text-white text-right w-[120px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -595,8 +595,8 @@ export default function AdminGameSessionsPage() {
                   expandedSessionId={expandedSessionId}
                   toggleExpand={handleToggleExpand}
                   onUpdateSession={handleUpdateSession}
-                  onEndSession={handleEndSession} // 이름 변경
-                  onDeletePermanently={handleDeletePermanentlyRequest} // 추가: 확인 요청 핸들러로 변경
+                  onEndSession={handleEndSession}
+                  onDeletePermanently={handleDeletePermanentlyRequest}
                   onResetSessionRequest={onResetSessionRequest}
                   onJumpToProblemRequest={onJumpToProblemRequest}
                   onResyncTriggers={handleResyncTriggers}
@@ -685,7 +685,7 @@ export default function AdminGameSessionsPage() {
               <SelectContent className="bg-[#1f1f1f] text-white border-[#2d2d2d]">
                 {triggerProblems.map((p) => (
                   <SelectItem key={p.id} value={String(p.number)}>
-                    {p.number}번 문제 {p.title}
+                    {p.number}번 '{p.title}'
                   </SelectItem>
                 ))}
                 <SelectItem value="all_solved">엔딩 (모든 문제 해결)</SelectItem>

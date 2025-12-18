@@ -18,14 +18,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-// DeviceGameplay 컴포넌트의 props 인터페이스 정의
 interface DeviceGameplayProps {
   gameState: GameState;
   theme: Theme;
   myDeviceId: string;
 }
 
-// DeviceGameplay 컴포넌트
 export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceGameplayProps) {
   const router = useRouter(); 
 
@@ -36,56 +34,63 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentProblem, setCurrentProblem] = useState<Problem | null>(null);
 
-  // --- GameState로부터 파생된 상태 ---
   const myDeviceState = gameState.connectedDevices?.[myDeviceId];
   const myPersistentMedia = myDeviceState?.currentPersistentMedia;
 
-  // myPersistentMedia.videoKey에서 타임스탬프 제거 (useMediaUrl에 전달하기 위함)
   const cleanVideoKey = useMemo(() => {
     return myPersistentMedia?.videoKey ? myPersistentMedia.videoKey.split('?')[0] : null;
   }, [myPersistentMedia?.videoKey]);
 
-  // 미디어 URL 로딩 훅
   const { url: videoUrl, loading: videoLoading } = useMediaUrl(cleanVideoKey);
   const { url: imageUrl, loading: imageLoading } = useMediaUrl(myPersistentMedia?.imageKey);
   const { url: bgmUrl, loading: bgmLoading } = useMediaUrl(myPersistentMedia?.bgmKey);
 
-  // --- 미디어 재생 관련 상태 ---
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false); // 현재 비디오 재생 여부
-  const [isBgmPlaying, setIsBgmPlaying] = useState(false);     // 현재 BGM 재생 여부
-  // 미디어 시퀀스 초기화 상태 (새로운 myPersistentMedia에 대한 시퀀스 시작 여부)
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [isBgmPlaying, setIsBgmPlaying] = useState(false);
+  const [isImagePreloaded, setIsImagePreloaded] = useState(false);
   const [isMediaSequenceInitialized, setIsMediaSequenceInitialized] = useState(false);
-  // 이전에 처리된 myPersistentMedia 객체를 추적하여 변경 감지
   const lastProcessedMediaRef = useRef<ConnectedDevice['currentPersistentMedia'] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  
-  // 정답 입력 필드 표시 여부
+  // 이미지 프리로딩: 이미지 URL이 변경될 때 미리 로드하여 깜빡임 방지
+  useEffect(() => {
+    setIsImagePreloaded(false);
+
+    if (!myPersistentMedia?.imageKey) {
+      setIsImagePreloaded(true);
+      return;
+    }
+
+    if (imageUrl) {
+      const img = new Image();
+      img.src = imageUrl;
+      img.onload = () => {
+        setIsImagePreloaded(true);
+      };
+      img.onerror = () => {
+        setIsImagePreloaded(true);
+      };
+    }
+  }, [imageUrl, myPersistentMedia?.imageKey]);
+
+  // 정답 입력창 노출 조건: 현재 문제의 담당 장치이고 트리거 타입이며 미해결 상태일 때
   const showAnswerInput = useMemo(() => {
-    // currentProblem이 활성화되어 있고, 해당 문제가 내 장치 담당이며, trigger 타입이고, 아직 해결되지 않았을 때만 표시
     return currentProblem && currentProblem.device === myDeviceId && currentProblem.type === 'trigger' && !gameState.solvedProblems?.[currentProblem.code];
   }, [currentProblem, myDeviceId, gameState.solvedProblems]);
 
-  // 키보드 단축키로 인한 새로고침 방지 (Hooks 규칙 준수를 위해 상단으로 이동)
+  // 게임 중 실수로 인한 새로고침(F5, Ctrl+R) 방지
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // F5, Ctrl+R (Windows/Linux), Cmd+R (Mac)
       if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key === 'r')) {
         e.preventDefault();
-        console.log('새로고침이 차단되었습니다.'); // 개발자 도구에만 표시
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // myPersistentMedia 변경에 따른 미디어 재생 관리 Effect
+  // 미디어 재생 시퀀스 관리: 비디오 종료 후 BGM/이미지/텍스트로 이어지는 흐름 제어
   useEffect(() => {
-    // Determine if the *relevant media keys* have changed
     const currentVideoKey = myPersistentMedia?.videoKey;
     const currentBgmKey = myPersistentMedia?.bgmKey;
     const currentImageKey = myPersistentMedia?.imageKey;
@@ -103,50 +108,41 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
         currentText !== prevText;
 
     if (!myPersistentMedia) {
-      // If no media, ensure everything is off and reset initialization
       setIsVideoPlaying(false);
       setIsBgmPlaying(false);
       setIsMediaSequenceInitialized(false);
-      lastProcessedMediaRef.current = null; // Clear ref
+      lastProcessedMediaRef.current = null;
       return;
     }
 
-    // Only re-initialize the sequence if media content keys changed OR if it's the very first initialization
     if (mediaContentKeysChanged || !isMediaSequenceInitialized) {
-      // Reset states for a clean sequence start
       setIsVideoPlaying(false);
       setIsBgmPlaying(false);
-      setIsMediaSequenceInitialized(false); // Ensure it's false for re-initialization
+      setIsMediaSequenceInitialized(false);
       
-      // Update the ref only if media content keys actually changed to prevent unnecessary re-renders
       if (mediaContentKeysChanged) {
-        lastProcessedMediaRef.current = { ...myPersistentMedia }; // Deep copy to prevent reference issues
+        lastProcessedMediaRef.current = { ...myPersistentMedia };
       }
 
-      // If URLs are still loading, wait. The effect will re-run when they are ready.
       if (myPersistentMedia.videoKey && !videoUrl) return;
       if (myPersistentMedia.bgmKey && !bgmUrl) return;
+      if (myPersistentMedia.imageKey && !imageUrl) return;
 
-      // Now, proceed to initialize the sequence
       const hasVideo = !!myPersistentMedia.videoKey;
       const hasBgm = !!myPersistentMedia.bgmKey;
 
-      if (hasVideo && videoUrl) { // Video exists and URL is ready
+      if (hasVideo && videoUrl) {
         setIsVideoPlaying(true);
-        // BGM will be off. setIsMediaSequenceInitialized will be true on handleVideoEnd.
-      } else { // No video or video URL not ready, proceed to BGM/Image/Text
-        if (hasBgm && bgmUrl) { // BGM exists and URL is ready
+      } else {
+        if (hasBgm && bgmUrl) {
           setIsBgmPlaying(true);
         }
-        setIsMediaSequenceInitialized(true); // BGM/Image/Text sequence is initialized
+        setIsMediaSequenceInitialized(true);
       }
     }
-  }, [myPersistentMedia, isMediaSequenceInitialized, videoUrl, bgmUrl, videoLoading, bgmLoading]);
+  }, [myPersistentMedia, isMediaSequenceInitialized, videoUrl, bgmUrl, imageUrl, videoLoading, bgmLoading, imageLoading]);
 
-
-  // --- 게임 흐름 관련 Effects ---
-
-  // gameState.currentProblemNumber 변경에 따른 현재 문제 업데이트 Effect
+  // 문제 데이터 동기화: 게임 상태 변경 시 현재 장치가 풀어야 할 문제 정보 가져오기
   useEffect(() => {
     async function fetchCurrentProblem() {
       if (!gameState.currentProblemNumber || !theme.id) {
@@ -154,29 +150,23 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
         return;
       }
       const problems = await getProblemsByTheme(theme.id);
-      // 현재 장치에 할당된 trigger 문제만 찾음
       const problem = problems.find(p => p.number === gameState.currentProblemNumber && p.type === 'trigger' && p.device === myDeviceId);
       setCurrentProblem(problem || null);
     }
     fetchCurrentProblem();
-    // currentProblemNumber가 변경되면 (재동기화 등) isMediaSequenceInitialized를 초기화하여
-    // 해당 시점의 미디어를 다시 재생할 수 있도록 함
-    setIsMediaSequenceInitialized(false); // Reset for new problem's media sequence
-  }, [gameState.currentProblemNumber, theme.id, myDeviceId]); // myDeviceId 의존성 추가
+    setIsMediaSequenceInitialized(false);
+  }, [gameState.currentProblemNumber, theme.id, myDeviceId]);
 
-
-  // --- 이벤트 핸들러 ---
-  // 비디오 재생 종료 핸들러
+  // 비디오 재생 완료 시 실행: 비디오를 끄고 BGM 및 텍스트/이미지 활성화
   const handleVideoEnd = useCallback(() => {
-    setIsVideoPlaying(false); // Stop video playback
-    // After video, if BGM exists and is ready, start it
+    setIsVideoPlaying(false);
     if (myPersistentMedia?.bgmKey && bgmUrl) {
       setIsBgmPlaying(true);
     }
-    setIsMediaSequenceInitialized(true); // Video sequence has completed, allow BGM/Image/Text
+    setIsMediaSequenceInitialized(true);
   }, [myPersistentMedia?.bgmKey, bgmUrl]);
 
-  // 정답 제출 핸들러
+  // 정답 제출 로직: 입력값 검증 및 정답 시 게임 상태 업데이트
   const handleAnswerSubmit = useCallback(async () => {
     if (!currentProblem || !gameState || !myDeviceId || isSubmitting) return;
 
@@ -185,7 +175,7 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
     setIsDialogOpen(false); 
 
     try {
-      const allProblems = await getProblemsByTheme(theme.id); // `updateGameStateWithProblemSolution`에 필요
+      const allProblems = await getProblemsByTheme(theme.id);
       const problemWithSolution = allProblems.find(p => p.id === currentProblem.id);
 
       if (!problemWithSolution) {
@@ -194,16 +184,13 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
         return;
       }
 
-      // 1. 제출된 정답이 맞는지 확인
       if (answerInput.trim() === problemWithSolution.solution) {
-        // 정답인 경우
         await updateGameStateWithProblemSolution(gameState.id, problemWithSolution, myDeviceId, allProblems); 
         setAnswerInput(''); 
       } else {
-        // 오답인 경우
         setDialogMessage("오답입니다. 다시 시도해주세요.");
         setIsDialogOpen(true);
-        setAnswerInput(''); // 오답 시 입력창 초기화
+        setAnswerInput('');
       }
       
     } catch (err: any) {
@@ -215,36 +202,25 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
     }
   }, [answerInput, currentProblem, gameState, myDeviceId, isSubmitting, theme]);
 
-  // 엔터 키 입력 핸들러
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.nativeEvent.isComposing) { // 한글 입력 중 엔터 방지
-      return;
-    }
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAnswerSubmit();
     }
   }, [handleAnswerSubmit]);
 
-  // 다이얼로그 닫기 핸들러
+  // 다이얼로그 닫기 후 입력창에 포커스 반환
   const handleDialogClose = useCallback(() => {
     setIsDialogOpen(false);
     setDialogMessage("");
-    console.log("Dialog closed. Attempting to focus input.");
     setTimeout(() => {
       if (inputRef.current) {
         inputRef.current.focus();
-        console.log("Input focused successfully.");
-      } else {
-        console.log("Input ref not available to focus.");
       }
     }, 0);
   }, []);
 
-  // --- 렌더링 로직 ---
-  const isLoadingMedia = videoLoading || imageLoading || bgmLoading;
-
-  // 장치 상태 로딩 중 (myDeviceState가 아직 없는 경우)
   if (!myDeviceState) {
     return (
       <div className="min-h-screen bg-[#1f1f1f] text-white flex items-center justify-center">
@@ -254,7 +230,6 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
     );
   }
   
-  // 게임 상태별 화면 표시
   if (gameState.status === 'pending') {
     return (
       <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center justify-center p-8 text-center">
@@ -274,71 +249,57 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
     );
   }
 
-  // if (gameState.status === 'ended') {
-  //   return (
-  //     <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center justify-center p-8 text-center">
-  //       <p className="text-2xl font-bold mb-4">게임 종료됨</p>
-  //       <p className="text-lg">참여해주셔서 감사합니다!</p>
-  //       <Link href="/device" className="text-blue-400 hover:underline mt-8">
-  //         &larr; 다시 연결
-  //       </Link>
-  //     </div>
-  //   );
-  // }
-
-  // 기본 게임 플레이 화면
   return (
     <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center justify-center">
       
-      {/* Background BGM Player - BGM 재생 상태일 때만 렌더링 */}
+      {/* BGM 및 비디오 플레이어 섹션 */}
       {isBgmPlaying && myPersistentMedia?.bgmKey && bgmUrl && <AudioPlayer src={bgmUrl} />}
-
-      {/* Video Player - 비디오 재생 상태일 때만 렌더링 */}
       {isVideoPlaying && myPersistentMedia?.videoKey && videoUrl && (
         <VideoPlayer src={videoUrl} onEnded={handleVideoEnd} />
       )}
 
-      {/* Main Game Content (비디오 재생 중이 아니고 미디어 시퀀스가 초기화된 경우에만 표시) */}
-      {!isVideoPlaying && isMediaSequenceInitialized && (
+      {/* 게임 콘텐츠 렌더링 (이미지, 텍스트, 정답 입력창) */}
+      {!isVideoPlaying && isMediaSequenceInitialized && isImagePreloaded && (
         <div className="w-full max-w-3xl p-8">
-          {myPersistentMedia?.imageKey && imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img 
-              src={imageUrl} 
-              alt="Problem Media" 
-              className="w-full object-contain rounded-lg cursor-pointer" 
-              onClick={() => setIsImageModalOpen(true)}
-            />
-          )}
-          {myPersistentMedia?.text && (
-            <p className="text-md text-center mb-4 whitespace-pre-wrap">{myPersistentMedia.text}</p>
-          )}
-          
-          {/* Answer Input Area - only if this device is responsible */}
-          {showAnswerInput && currentProblem && (
-            <div className="relative group max-w-md mx-auto mt-4">
-              <Input 
-                ref={inputRef}
-                type="text" 
-                placeholder="" 
-                className="w-full text-center text-3xl h-16 pr-12"
-                value={answerInput}
-                onChange={(e) => setAnswerInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isSubmitting}
+          <>
+            {myPersistentMedia?.imageKey && imageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageUrl}
+                alt="Problem Media"
+                className="w-full object-contain rounded-lg cursor-pointer"
+                onClick={() => setIsImageModalOpen(true)}
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-white cursor-pointer"
-                   onClick={() => setIsImageModalOpen(true)} // onClick for icon
-                   aria-disabled={isSubmitting}
-              >
-                <IoReturnDownBackSharp size={24} />
+            )}
+            {myPersistentMedia?.text && (
+              <p className="text-md text-center mb-4 whitespace-pre-wrap">{myPersistentMedia.text}</p>
+            )}
+
+            {showAnswerInput && currentProblem && (
+              <div className="relative group max-w-md mx-auto mt-4">
+                <Input
+                  ref={inputRef}
+                  type="text"
+                  placeholder=""
+                  className="w-full text-center text-3xl h-16 pr-12"
+                  value={answerInput}
+                  onChange={(e) => setAnswerInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={isSubmitting}
+                />
+                <div
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-white cursor-pointer"
+                  onClick={() => setIsImageModalOpen(true)}
+                >
+                  <IoReturnDownBackSharp size={24} />
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </>
         </div>
       )}
 
-      {/* General Dialog (for wrong answers, etc.) */}
+      {/* 결과 알림 및 이미지 확대 모달 */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px] bg-[#1f1f1f] text-white border-slate-700/70">
           <DialogHeader>
@@ -348,19 +309,13 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
             <p className="text-left">{dialogMessage}</p>
           </div>
           <DialogFooter>
-            <Button 
-              onClick={handleDialogClose} 
-              type="button" 
-              variant="outline" 
-              className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]"
-            >
+            <Button onClick={handleDialogClose} variant="outline" className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
               확인
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Image Zoom Modal */}
       <Dialog open={isImageModalOpen} onOpenChange={setIsImageModalOpen}>
         <DialogContent className="max-w-7xl max-h-[95vh] bg-transparent border-none flex items-center justify-center p-0">
           <DialogHeader>
@@ -368,7 +323,7 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
           </DialogHeader>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={myPersistentMedia?.imageKey ? imageUrl || '' : ''} // Use imageUrl from myPersistentMedia
+            src={myPersistentMedia?.imageKey ? imageUrl || '' : ''}
             alt="Enlarged Problem Media"
             className="w-full h-full object-contain"
           />
