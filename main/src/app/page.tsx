@@ -120,6 +120,8 @@ export default function Home() {
         router.push('/admin');
       } else if (role === 'player') {
         router.push('/player');
+      } else if (role === 'device') {
+        router.push('/device');
       }
     }
   }, [role, loading, router]);

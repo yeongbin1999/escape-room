@@ -5,7 +5,7 @@ import withPWA from "next-pwa";
 
 // 1. Next.js의 기본 설정
 const nextConfig: NextConfig = {
-  reactStrictMode: true, // 이 설정이 문제가 되는 항목입니다. 아래 2번을 보세요.
+  reactStrictMode: false,
   turbopack: {}, // Turbopack 사용 시 Webpack 설정과의 충돌을 방지하기 위한 빈 설정
   images: {
     remotePatterns: [

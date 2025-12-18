@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import type { Theme } from "@/types/dbTypes";
@@ -18,8 +19,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { addTheme, updateTheme } from "@/lib/firestoreService";
-import { FaUpload, FaTimes, FaSpinner } from "react-icons/fa";
 import {
   Dialog,
   DialogContent,
@@ -27,77 +26,95 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { FaPlusCircle, FaMinusCircle } from "react-icons/fa";
+import { addTheme, updateTheme } from "@/lib/firestoreService";
+import FileUploadField from "@/components/FileUploadField";
 
-interface ThemeFormProps {
-  initialData?: Theme;
-  onSuccess?: () => void;
-}
+// 스키마 정의
+const deviceSchema = z.object({
+    id: z.string().min(1).max(20),
+});
 
 const themeFormSchema = z.object({
-  title: z.string().min(1, { message: "제목은 필수입니다." }),
-  description: z.string().min(1, { message: "설명은 필수입니다." }),
+  title: z.string().min(1),
+  description: z.string().min(1),
   openingVideoKey: z.string().nullable().optional(), 
   openingBgmKey: z.string().nullable().optional(),
   openingImageKey: z.string().nullable().optional(),
   openingText: z.string().nullable().optional(),
   thumbnailKey: z.string().nullable().optional(),
   isActive: z.boolean(),
+  availableDevices: z.array(deviceSchema).optional(), 
 });
 
 type ThemeFormValues = z.infer<typeof themeFormSchema>;
 
-const ACCEPTED_FILE_TYPES = {
+// 파일 설정 상수
+const THEME_ACCEPTED_FILE_TYPES = {
   thumbnailKey: 'image/jpeg,image/png,image/webp,image/gif',
   openingVideoKey: 'video/mp4,video/webm,video/ogg,video/quicktime',
   openingBgmKey: 'audio/mp3,audio/wav,audio/ogg,audio/mpeg',
   openingImageKey: 'image/jpeg,image/png,image/webp,image/gif',
 };
-const ACCEPTED_FILE_DESCRIPTIONS = {
-    thumbnailKey: 'JPG, PNG, WebP, GIF 등의 이미지 파일 미선택 시 기본이미지',
+
+const THEME_ACCEPTED_FILE_DESCRIPTIONS = {
+    thumbnailKey: 'JPG, PNG, WebP, GIF 등의 이미지 파일',
     openingVideoKey: 'MP4, WebM, OGG, MOV 등의 비디오 파일',
     openingBgmKey: 'MP3, WAV, OGG 등의 오디오 파일',
     openingImageKey: 'JPG, PNG, WebP, GIF 등의 이미지 파일',
 };
 
+// Props 인터페이스
+interface ThemeFormProps {
+  initialData?: Theme;
+  onSuccess?: () => void;
+}
+
+// ThemeForm 컴포넌트 본체
 export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploading, setUploading] = useState<string | null>(null);
+  const [uploadingStatus, setUploadingStatus] = useState<string | null>(null); 
   const [dialogMessage, setDialogMessage] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
 
+  // 폼 초기화 및 유효성 검사 설정
   const form = useForm<ThemeFormValues>({
     resolver: zodResolver(themeFormSchema),
     defaultValues: {
       title: initialData?.title || "",
       description: initialData?.description || "",
-      openingVideoKey: initialData?.openingVideoKey || "",
-      openingBgmKey: initialData?.openingBgmKey || "",
-      openingImageKey: initialData?.openingImageKey || "",
-      openingText: initialData?.openingText || "",
-      thumbnailKey: initialData?.thumbnailKey || "",
+      openingVideoKey: initialData?.openingVideoKey || null,
+      openingBgmKey: initialData?.openingBgmKey || null,
+      openingImageKey: initialData?.openingImageKey || null,
+      openingText: initialData?.openingText || null,
+      thumbnailKey: initialData?.thumbnailKey || null,
       isActive: initialData?.isActive || false,
+      // 문자열 배열 -> 객체 배열 변환
+      availableDevices: initialData?.availableDevices?.map(device => ({ id: device })) || [],
     },
     mode: "onChange",
   });
 
-  const handleFileUpload = async (file: File, fieldName: "openingVideoKey" | "openingBgmKey" | "openingImageKey" | "thumbnailKey"): Promise<string | null> => {
-    const acceptedTypes = ACCEPTED_FILE_TYPES[fieldName];
-    if (acceptedTypes && !acceptedTypes.split(',').includes(file.type)) {
-      const allowedExtensions = ACCEPTED_FILE_DESCRIPTIONS[fieldName];
-      setDialogMessage(`잘못된 파일 형식입니다. ${allowedExtensions}만 업로드할 수 있습니다.`);
-      setIsDialogOpen(true);
-      return null;
-    }
+  // 동적 필드 관리
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "availableDevices",
+  });
 
-    setUploading(fieldName);
+  // 파일 업로드 로직 (Signed URL을 통한 클라이언트 직접 업로드)
+  const handleFileUpload = useCallback(async (file: File, fieldName: keyof typeof THEME_ACCEPTED_FILE_TYPES): Promise<string | null> => {
+    setUploadingStatus(fieldName);
     try {
-      const response = await fetch('/api/upload-url', {
+      const response = await fetch('/api/upload-url', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename: file.name, contentType: file.type }),
       });
-      if (!response.ok) throw new Error('Presigned URL 요청 실패');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Presigned URL 요청 실패');
+      }
       const { signedUrl, key } = await response.json();
 
       const uploadResponse = await fetch(signedUrl, {
@@ -105,75 +122,24 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
         headers: { 'Content-Type': file.type },
         body: file,
       });
-      if (!uploadResponse.ok) throw new Error('R2 업로드 실패');
+      if (!uploadResponse.ok) throw new Error('업로드 실패');
+      
       return key;
     } catch (error) {
       console.error("파일 업로드 실패:", error);
-      setDialogMessage(`${file.name} 파일 업로드에 실패했습니다.`);
-      setIsDialogOpen(true);
+      setDialogMessage(`${file.name} 파일 업로드에 실패했습니다: ${(error as Error).message}`);
+      setIsAlertDialogOpen(true);
       return null;
     } finally {
-      setUploading(null);
+      setUploadingStatus(null);
     }
-  };
+  }, []);
 
-  const FileUploadField = ({ name, label }: { name: "openingVideoKey" | "openingBgmKey" | "openingImageKey" | "thumbnailKey", label: string }) => {
-    const currentKey = form.watch(name);
-    const acceptAttr = ACCEPTED_FILE_TYPES[name];
-    const uiDescription = ACCEPTED_FILE_DESCRIPTIONS[name];
-
-    return (
-      <FormItem>
-        <FormLabel className="text-white">{label}</FormLabel>
-        <div className="flex items-center space-x-4">
-          <FormControl>
-            <div className="relative w-full">
-              <Input
-                id={name}
-                type="file"
-                className="hidden"
-                accept={acceptAttr}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    handleFileUpload(file, name).then(key => {
-                      if (key) form.setValue(name, key, { shouldValidate: true, shouldDirty: true });
-                      e.target.value = ''; 
-                    });
-                  }
-                }}
-              />
-              <label
-                htmlFor={name}
-                className="flex items-center justify-between cursor-pointer rounded-md border border-[#2d2d2d] bg-[#171717] px-3 py-2 text-sm text-gray-400 focus-visible:border-[#4a4a4a]"
-              >
-                <span className="truncate max-w-[calc(100%-80px)]">
-                  {uploading === name ? `업로드 중...` : (currentKey || "파일을 선택하세요")}
-                </span>
-                {uploading === name ? <FaSpinner className="animate-spin" /> : <FaUpload />}
-              </label>
-            </div>
-          </FormControl>
-          {currentKey && currentKey !== 'default' && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => form.setValue(name, name === 'thumbnailKey' ? null : '', { shouldValidate: true, shouldDirty: true })}
-            >
-              <FaTimes className="text-red-500" />
-            </Button>
-          )}
-        </div>
-        <FormDescription className="text-gray-400 ml-2">{uiDescription} (선택 사항)</FormDescription>
-        <FormMessage className="text-red-500 pt-1 ml-2" />
-      </FormItem>
-    );
-  };
-
+  // 폼 제출 처리 함수
   async function onSubmit(values: ThemeFormValues) {
     setIsSubmitting(true);
     try {
+      // 객체 배열 -> 문자열 배열 변환
       const dataToSave = {
         ...values,
         openingVideoKey: values.openingVideoKey || null,
@@ -181,6 +147,7 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
         openingImageKey: values.openingImageKey || null,
         openingText: values.openingText || null,
         thumbnailKey: values.thumbnailKey || null,
+        availableDevices: values.availableDevices?.map(device => device.id) || [],
       };
 
       if (initialData) {
@@ -190,21 +157,22 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
         await addTheme(dataToSave);
         setDialogMessage("테마가 성공적으로 생성되었습니다.");
       }
-      setIsDialogOpen(true);
+      setIsAlertDialogOpen(true);
     } catch (error) {
       console.error("테마 저장 실패:", error);
       setDialogMessage("테마 저장에 실패했습니다.");
-      setIsDialogOpen(true);
+      setIsAlertDialogOpen(true);
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
+  // 알림 다이얼로그 닫기 및 후처리
+  const handleAlertDialogClose = () => {
+    setIsAlertDialogOpen(false);
     if (dialogMessage.includes("성공")) {
       onSuccess?.();
-      router.push("/admin");
+      router.push("/admin/themes");
     }
   };
 
@@ -212,45 +180,144 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-4 max-h-[85vh] overflow-y-auto custom-scroll">
+          
+          {/* 제목 필드 */}
           <FormField
             control={form.control}
             name="title"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-white">
-                  <span className="flex items-center"> 
-                    제목<span className="text-red-500 ml-0">*</span> 
-                  </span>
-                </FormLabel>
-                <FormControl>
-                  <Input {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
-                </FormControl>
-                <FormMessage className="text-red-500 ml-2" />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-white">
-                  <span className="flex items-center"> 
-                    설명<span className="text-red-500 ml-0">*</span> 
-                  </span>
-                </FormLabel>
-                <FormControl>
-                  <Textarea {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" />
-                </FormControl>
+                <FormLabel className="text-white"><span className="flex items-center">제목<span className="text-red-500 ml-0">*</span></span></FormLabel>
+                <FormControl><Input {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" /></FormControl>
                 <FormMessage className="text-red-500 ml-2" />
               </FormItem>
             )}
           />
 
-          <FileUploadField name="thumbnailKey" label="메인 이미지" />
-          <FileUploadField name="openingVideoKey" label="오프닝 영상" />
-          <FileUploadField name="openingBgmKey" label="오프닝 BGM" />
-          <FileUploadField name="openingImageKey" label="오프닝 이미지" />
+          {/* 설명 필드 */}
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-white"><span className="flex items-center">설명<span className="text-red-500 ml-0">*</span></span></FormLabel>
+                <FormControl><Textarea {...field} className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0" /></FormControl>
+                <FormMessage className="text-red-500 ml-2" />
+              </FormItem>
+            )}
+          />
+
+          {/* 동적 장치 목록 필드 */}
+          <div>
+            <FormLabel className="text-white">장치 목록</FormLabel>
+            <FormDescription className="text-gray-400 mt-2 ml-2 mb-2">
+              이 테마에서 사용할 부가 장치들을 추가하세요.
+            </FormDescription>
+            {fields.map((item, index) => (
+              <div key={item.id} className="flex items-start space-x-2 mb-2">
+                <FormField
+                  control={form.control}
+                  name={`availableDevices.${index}.id`}
+                  render={({ field }) => (
+                    <FormItem className="flex-grow">
+                      <FormControl>
+                        <Input
+                          {...field}
+                          className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-500 ml-2" />
+                    </FormItem>
+                  )}
+                />
+                <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}>
+                  <FaMinusCircle className="text-red-500" />
+                </Button>
+              </div>
+            ))}
+            
+            <div className="flex justify-end mt-2"> 
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => append({ id: "" })}
+                className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]"
+              >
+                <FaPlusCircle className="mr-2" /> 장치 추가
+              </Button>
+            </div>
+          </div>
+
+          {/* 파일 업로드 필드: 메인 이미지 */}
+          <FileUploadField
+            fieldPath={"thumbnailKey" as keyof ThemeFormValues}
+            label="메인 이미지"
+            currentKey={form.watch("thumbnailKey")}
+            onFileChange={async (file) => {
+              const key = file ? await handleFileUpload(file, "thumbnailKey") : null;
+              form.setValue("thumbnailKey", key, { shouldValidate: true, shouldDirty: true });
+            }}
+            onClear={() => form.setValue("thumbnailKey", null, { shouldValidate: true, shouldDirty: true })}
+            uploadingStatus={uploadingStatus}
+            setDialogMessage={setDialogMessage}
+            setIsDialogOpen={setIsAlertDialogOpen}
+            acceptedFileTypes={THEME_ACCEPTED_FILE_TYPES}
+            acceptedFileDescriptions={THEME_ACCEPTED_FILE_DESCRIPTIONS}
+          />
+
+          {/* 파일 업로드 필드: 오프닝 영상 */}
+          <FileUploadField
+            fieldPath={"openingVideoKey" as keyof ThemeFormValues}
+            label="오프닝 영상"
+            currentKey={form.watch("openingVideoKey")}
+            onFileChange={async (file) => {
+              const key = file ? await handleFileUpload(file, "openingVideoKey") : null;
+              form.setValue("openingVideoKey", key, { shouldValidate: true, shouldDirty: true });
+            }}
+            onClear={() => form.setValue("openingVideoKey", null, { shouldValidate: true, shouldDirty: true })}
+            uploadingStatus={uploadingStatus}
+            setDialogMessage={setDialogMessage}
+            setIsDialogOpen={setIsAlertDialogOpen}
+            acceptedFileTypes={THEME_ACCEPTED_FILE_TYPES}
+            acceptedFileDescriptions={THEME_ACCEPTED_FILE_DESCRIPTIONS}
+          />
+          
+          {/* 파일 업로드 필드: 오프닝 BGM */}
+          <FileUploadField
+            fieldPath={"openingBgmKey" as keyof ThemeFormValues}
+            label="오프닝 BGM"
+            currentKey={form.watch("openingBgmKey")}
+            onFileChange={async (file) => {
+              const key = file ? await handleFileUpload(file, "openingBgmKey") : null;
+              form.setValue("openingBgmKey", key, { shouldValidate: true, shouldDirty: true });
+            }}
+            onClear={() => form.setValue("openingBgmKey", null, { shouldValidate: true, shouldDirty: true })}
+            uploadingStatus={uploadingStatus}
+            setDialogMessage={setDialogMessage}
+            setIsDialogOpen={setIsAlertDialogOpen}
+            acceptedFileTypes={THEME_ACCEPTED_FILE_TYPES}
+            acceptedFileDescriptions={THEME_ACCEPTED_FILE_DESCRIPTIONS}
+          />
+
+          {/* 파일 업로드 필드: 오프닝 이미지 */}
+          <FileUploadField
+            fieldPath={"openingImageKey" as keyof ThemeFormValues}
+            label="오프닝 이미지"
+            currentKey={form.watch("openingImageKey")}
+            onFileChange={async (file) => {
+              const key = file ? await handleFileUpload(file, "openingImageKey") : null;
+              form.setValue("openingImageKey", key, { shouldValidate: true, shouldDirty: true });
+            }}
+            onClear={() => form.setValue("openingImageKey", null, { shouldValidate: true, shouldDirty: true })}
+            uploadingStatus={uploadingStatus}
+            setDialogMessage={setDialogMessage}
+            setIsDialogOpen={setIsAlertDialogOpen}
+            acceptedFileTypes={THEME_ACCEPTED_FILE_TYPES}
+            acceptedFileDescriptions={THEME_ACCEPTED_FILE_DESCRIPTIONS}
+          />
+          
+          {/* 오프닝 텍스트 필드 */}
           <FormField
             control={form.control}
             name="openingText"
@@ -264,22 +331,18 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
                       className="bg-[#171717] border-[#2d2d2d] text-white placeholder:text-gray-400 focus-visible:border-[#4a4a4a] focus-visible:ring-0"
                   />
                 </FormControl>
-                <FormDescription className="text-gray-400 ml-2">
-                  오프닝 미디어와 함께 표시될 텍스트입니다. (선택 사항)
-                </FormDescription>
                 <FormMessage className="text-red-500 ml-2" />
               </FormItem>
             )}
           />
 
+          {/* 활성화 여부 체크박스 */}
           <FormField
             control={form.control}
             name="isActive"
             render={({ field }) => (
               <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4 shadow bg-[#171717] border-[#2d2d2d]">
-                <FormControl>
-                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                </FormControl>
+                <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                 <div className="space-y-1 leading-none">
                   <FormLabel className="text-white">테마 활성화</FormLabel>
                   <FormDescription>이 테마를 사용자에게 표시할지 여부</FormDescription>
@@ -287,26 +350,30 @@ export default function ThemeForm({ initialData, onSuccess }: ThemeFormProps) {
               </FormItem>
             )}
           />
+          
+          {/* 폼 제출 버튼 */}
           <div className="flex justify-end">
-            <Button type="submit" variant="outline" disabled={isSubmitting || uploading !== null} className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
-              {isSubmitting ? "저장 중..." : (uploading ? "업로드 중..." : "저장")}
+            <Button 
+                type="submit" 
+                variant="outline" 
+                disabled={isSubmitting || uploadingStatus !== null} 
+                className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]"
+            >
+              {isSubmitting ? "저장 중..." : (uploadingStatus ? "업로드 중..." : "저장")}
             </Button>
           </div>
         </form>
       </Form>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {/* 저장 결과 알림 다이얼로그 */}
+      <Dialog open={isAlertDialogOpen} onOpenChange={setIsAlertDialogOpen}>
         <DialogContent className="sm:max-w-[425px] bg-[#1f1f1f] text-white border-slate-700/70">
           <DialogHeader>
-            <DialogTitle>{dialogMessage.includes("실패") || dialogMessage.includes("잘못된") ? "오류" : "성공"}</DialogTitle>
+            <DialogTitle>{dialogMessage.includes("실패") ? "오류" : "성공"}</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p>{dialogMessage}</p>
-          </div>
+          <div className="py-4"><p>{dialogMessage}</p></div>
           <DialogFooter>
-            <Button onClick={handleDialogClose} variant="outline" className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">
-              확인
-            </Button>
+            <Button onClick={handleAlertDialogClose} variant="outline" className="text-white hover:text-gray-300 border-gray-700 hover:bg-[#282828]">확인</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

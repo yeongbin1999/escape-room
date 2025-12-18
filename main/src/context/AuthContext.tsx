@@ -7,7 +7,7 @@ import { app, db } from '@/lib/firebaseConfig';
 
 interface AuthContextType {
   user: User | null;
-  role: 'admin' | 'player' | null;
+  role: 'admin' | 'player' | 'device' | null;
   loading: boolean;
 }
 
