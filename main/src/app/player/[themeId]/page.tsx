@@ -1,7 +1,7 @@
 "use client"
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getTheme, getProblemsByTheme } from '@/lib/firestoreService';
 import { Theme, Problem } from '@/types/dbTypes';
 import VideoPlayer from '@/components/player/VideoPlayer';
@@ -22,6 +22,8 @@ import {
 export default function PlayerGamePage() {
   const params = useParams();
   const { themeId } = params;
+
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // 테마 데이터 및 로딩/에러 상태
   const [theme, setTheme] = useState<Theme | null>(null);
@@ -49,6 +51,8 @@ export default function PlayerGamePage() {
   const [isProblemBgmPlaying, setIsProblemBgmPlaying] = useState(false);     // 문제 반응 BGM
   const [hasMediaStarted, setHasMediaStarted] = useState(false);             // 최초 미디어 시작 여부
   const [isSubmitting, setIsSubmitting] = useState(false);                   // 정답 제출 로딩 상태
+  const [isGameFinished, setIsGameFinished] = useState(false);               // 게임 종료 상태
+
 
   // 화면에 표시될 문제 이미지/텍스트 상태 (오프닝 또는 문제 반응)
   const [displayedProblemImageKey, setDisplayedProblemImageKey] = useState<string | null>(null);
@@ -65,6 +69,9 @@ export default function PlayerGamePage() {
   const handleDialogClose = useCallback(() => {
     setIsDialogOpen(false);
     setDialogMessage("");
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
   }, []);
 
   // 문제 비디오 재생 종료 핸들러: 비디오 종료 후 BGM 재생 시작
@@ -82,7 +89,12 @@ export default function PlayerGamePage() {
     
     // 처리 완료 후 액티브 미디어 상태 초기화
     setActiveProblemMedia(null);
-  }, [activeProblemMedia, activeProblemBgmKey, problemBgmUrl]);
+
+    // 방금 푼 문제가 마지막 문제였다면 게임 종료 상태로 변경
+    if (problems.length === 0) {
+      setIsGameFinished(true);
+    }
+  }, [activeProblemMedia, activeProblemBgmKey, problemBgmUrl, problems]);
 
   // 정답 제출 핸들러
   const handleAnswerSubmit = useCallback(async () => {
@@ -93,38 +105,51 @@ export default function PlayerGamePage() {
     setIsSubmitting(true);
 
     try {
-      const solvedProblem = problems[0]; // 풀어야 할 문제는 항상 정렬된 목록의 첫 번째
+      const solvedProblem = problems[0];
       const isCorrect = answerInput.trim() === solvedProblem.solution;
 
       if (isCorrect) {
-        // 정답인 경우: 모든 미디어 정지
+        // 정답인 경우: 모든 미디어 정지 및 입력 초기화
         setIsVideoPlaying(false);
         setIsBgmPlaying(false);
         setIsProblemVideoPlaying(false);
         setIsProblemBgmPlaying(false);
         setAnswerInput('');
 
-        // 비디오가 있는 경우: 이전 화면 유지, 비디오 재생 준비
-        if (solvedProblem.media?.videoKey) {
-          // 중요: displayedProblem... 상태를 여기서 바꾸지 않아 화면 유지
-          setActiveProblemMedia(solvedProblem.media);
-          setActiveProblemVideoKey(solvedProblem.media.videoKey);
-          setActiveProblemBgmKey(solvedProblem.media.bgmKey || null);
+        const isLastProblem = problems.length === 1;
+
+        if (isLastProblem) {
+          // 마지막 문제인 경우
+          if (solvedProblem.media?.videoKey) {
+            // 비디오가 있으면 재생 준비
+            setActiveProblemMedia(solvedProblem.media);
+            setActiveProblemVideoKey(solvedProblem.media.videoKey);
+            setActiveProblemBgmKey(solvedProblem.media.bgmKey || null);
+          } else {
+            // 비디오가 없으면 즉시 게임 종료
+            setIsGameFinished(true);
+          }
+          // 문제를 목록에서 제거
+          setProblems([]);
         } else {
-          // 비디오가 없는 경우: 즉시 다음 콘텐츠 표시
-          setDisplayedProblemImageKey(solvedProblem.media?.imageKey || null);
-          setDisplayedProblemText(solvedProblem.media?.text || null);
-          setActiveProblemMedia(null);
-          setActiveProblemVideoKey(null);
-          // 비디오가 없어도 BGM은 있을 수 있으므로 설정
-          setActiveProblemBgmKey(solvedProblem.media?.bgmKey || null);
+          // 마지막 문제가 아닌 경우, 다음 문제로 넘어감
+          if (solvedProblem.media?.videoKey) {
+            setActiveProblemMedia(solvedProblem.media);
+            setActiveProblemVideoKey(solvedProblem.media.videoKey);
+            setActiveProblemBgmKey(solvedProblem.media.bgmKey || null);
+          } else {
+            setDisplayedProblemImageKey(solvedProblem.media?.imageKey || null);
+            setDisplayedProblemText(solvedProblem.media?.text || null);
+            setActiveProblemMedia(null);
+            setActiveProblemVideoKey(null);
+            setActiveProblemBgmKey(solvedProblem.media?.bgmKey || null);
+          }
+          // 푼 문제를 목록에서 제거
+          setProblems(prevProblems => prevProblems.slice(1));
         }
-        
-        // 푼 문제를 목록에서 제거
-        setProblems(prevProblems => prevProblems.slice(1));
       } else {
         // 오답인 경우
-        setAnswerInput(''); // 입력 초기화
+        setAnswerInput('');
         setDialogMessage("오답입니다. 다시 시도해주세요.");
         setIsDialogOpen(true);
       }
@@ -259,6 +284,17 @@ export default function PlayerGamePage() {
     };
   }, [isVideoPlaying, isProblemVideoPlaying]);
 
+  // 입력 필드 포커스 관리
+  useEffect(() => {
+    // 메인 게임 콘텐츠가 표시될 때 (비디오 재생 중이 아닐 때)
+    if (theme && !loading && !error && !isVideoPlaying && !isProblemVideoPlaying) {
+      // 약간의 딜레이 후 포커스를 주어 다른 UI 렌더링과의 충돌 방지
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [theme, loading, error, isVideoPlaying, isProblemVideoPlaying]);
+
   // 키보드 단축키로 인한 새로고침 방지
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -279,9 +315,9 @@ export default function PlayerGamePage() {
   return (
     <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center justify-center">
       
-      {/* 테마 선택으로 돌아가기 버튼 (모든 문제 해결 시) */}
-      {!loading && problems.length === 0 && (
-        <Link href="/player" className="absolute top-4 right-4 z-50 text-white hover:text-gray-300">
+      {/* 테마 선택으로 돌아가기 버튼 (게임 종료 시) */}
+      {isGameFinished && (
+        <Link href="/player" className="absolute top-4 right-4 z-50 text-white opacity-50 hover:opacity-100 transition-opacity">
           <GoXCircle size={32} />
         </Link>
       )}
@@ -347,6 +383,7 @@ export default function PlayerGamePage() {
           {problems.length > 0 && (
             <div className="relative group max-w-md mx-auto mt-4">
               <Input 
+                ref={inputRef}
                 type="text" 
                 placeholder="" 
                 className="w-full text-center text-3xl h-16 pr-12"

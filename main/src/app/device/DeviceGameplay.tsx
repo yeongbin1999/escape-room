@@ -210,6 +210,16 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
     }
   }, [handleAnswerSubmit]);
 
+  // 입력 필드 자동 포커스
+  useEffect(() => {
+    if (showAnswerInput && !isVideoPlaying && isMediaSequenceInitialized && isImagePreloaded && !isDialogOpen && !isSubmitting) {
+      // 약간의 딜레이 후 포커스를 주어 다른 UI 렌더링과의 충돌 방지
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [showAnswerInput, isVideoPlaying, isMediaSequenceInitialized, isImagePreloaded, isDialogOpen, isSubmitting]);
+
   // 다이얼로그 닫기 후 입력창에 포커스 반환
   const handleDialogClose = useCallback(() => {
     setIsDialogOpen(false);
@@ -233,9 +243,9 @@ export default function DeviceGameplay({ gameState, theme, myDeviceId }: DeviceG
   if (gameState.status === 'pending') {
     return (
       <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center justify-center p-8 text-center">
-        <p className="text-2xl font-bold mb-4">테마 '{theme.title}' 시작 대기 중</p>
-        <p className="text-lg">게임 코드: {gameState.gameCode}</p>
-        <p className="text-lg">장치: {myDeviceId}</p>
+        <p className="text-2xl font-bold mb-4">테마 '{theme.title}'</p>
+        <p className="text-lg">게임 세션 코드: {gameState.gameCode}</p>
+        <p className="text-lg">장치 설정: {myDeviceId}</p>
       </div>
     );
   }
