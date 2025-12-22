@@ -280,7 +280,7 @@ export default function PlayerGamePage() {
     <div className="min-h-screen bg-[#1f1f1f] text-white flex flex-col items-center justify-center">
       
       {/* 테마 선택으로 돌아가기 버튼 (모든 문제 해결 시) */}
-      {problems.length === 0 && (
+      {!loading && problems.length === 0 && (
         <Link href="/player" className="absolute top-4 right-4 z-50 text-white hover:text-gray-300">
           <GoXCircle size={32} />
         </Link>
